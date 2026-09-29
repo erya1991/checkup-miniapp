@@ -1,12 +1,12 @@
 {
   "name": "检查单",
-  "appid": "__UNI__CHECKUP",
+  "appid": "wxc11347570a0ca43a",
   "description": "检查单小程序工程骨架",
   "versionName": "0.1.0",
   "versionCode": "100",
   "transformPx": false,
   "mp-weixin": {
     "appid": "",
-    "setting": { "urlCheck": false }
+    "setting": { "urlCheck": true }
   }
 }

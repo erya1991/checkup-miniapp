@@ -10,4 +10,6 @@ Only the scripts needed by `report_pipeline.py` and their direct imports are ret
 
 Bundled model: `PP-OCRv6_medium_rec` CPU, copied from the verified local PaddleX official model cache. `inference.pdiparams` SHA-256: `1b01c79a914587933f615569e75de54f2e638ebb5d3f3b3c1b38c24ede8c7319`. The model files remain private to the backend deployment; the application never sends them to the miniapp.
 
+The PaddleOCR `models/PP-OCRv6_medium_rec/inference.pdiparams` model is managed by Git LFS (about 76 MB). On a new machine, server, or fresh clone, install Git LFS and run `git lfs pull` after cloning. A file of about 133 bytes is only an LFS pointer, not the complete model. Confirm the full model has been pulled before starting the OCR Worker.
+
 Verified Python packages: see `backend/pyproject.toml` `ocr` extra and `backend/ocr-paddle-requirements.txt`. Normal and Paddle interpreters are separate because their verified NumPy/OpenCV versions differ. Production runtime reads these files and this bundled model from `backend/`; no sibling PoC checkout is required. The PoC remains the source of algorithm regression and frozen baselines.

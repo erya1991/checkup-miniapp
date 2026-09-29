@@ -29,20 +29,22 @@ checkup-miniapp/
 
 ## 当前阶段
 
-阶段 00 已验收通过；阶段 01 工程骨架已实现，验收结果以 `docs/stages/01-foundation/RESULT.md` 为准。当前工程只包含健康检查和占位页，不包含业务闭环。
+阶段 01、阶段 02 均已验收通过。阶段 02 已完成微信登录、健康档案、报告图片上传与私有 COS 的真实主流程验收；以 `docs/stages/02-profile-upload/RESULT.md` 为准。OCR 及正式报告尚未实现。
 
-`docs/stages/01-foundation/`
-
-## Stage 01 本地运行
+## Stage 02 本地运行
 
 | 工程 | 已实现入口 | 操作 |
 | --- | --- | --- |
 | PostgreSQL 17 | 根目录 `compose.yaml` | 复制 `.env.example` 为 `.env`，执行 `docker compose up -d postgres` |
 | Backend | `GET /api/v1/health` | 按 `backend/README.md` 创建 Python 3.12 虚拟环境、安装依赖、执行迁移并启动 |
-| Miniapp | 单一占位首页 | 在 `miniapp/` 执行 `pnpm install`、`pnpm typecheck`、`pnpm build:mp-weixin` |
+| Miniapp | 登录、档案、上传和图片确认页 | 在 `miniapp/` 执行 `pnpm install`、`pnpm typecheck`、`pnpm build:mp-weixin`；将 `dist/build/mp-weixin` 导入微信开发者工具 |
 | Admin Web | `/` 占位首页 | 在 `admin-web/` 执行 `pnpm install`、`pnpm dev`、`pnpm build` |
 
-两个前端分别维护 `pnpm-lock.yaml`。真实 `.env` 不提交；后端使用 `DATABASE_URL`、`APP_ENV`、`LOG_LEVEL`。微信与 COS 配置尚未接入。当前数据库只有 Alembic 版本表，没有业务表。实际验收和未完成项见 Stage 01 RESULT。
+两个前端分别维护 `pnpm-lock.yaml`。真实 `.env` 不提交。后端运行前需将 `.env.example` 复制为 `.env`，设置 `DATABASE_URL`、至少 32 字符随机 `JWT_SECRET`、`WECHAT_APP_ID`、`WECHAT_APP_SECRET`、`COS_SECRET_ID`、`COS_SECRET_KEY`、`COS_BUCKET`、`COS_REGION`。执行 `docker compose up -d postgres`，在 `backend/` 执行 `.venv/Scripts/alembic.exe upgrade head` 和 `.venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000`。后端通过微信服务端 code 交换用户身份，签发自己的 Token；COS 永久密钥只在服务端使用。
+
+微信开发者工具运行时，在 `miniapp/` 设置 `VITE_API_BASE_URL=https://<你的 API 域名>/api/v1` 并构建；开发者工具使用真实 AppID。微信公众平台应配置 HTTPS API 为 request 合法域名，COS 的 `https://<Bucket>.cos.<Region>.myqcloud.com` 为 request、uploadFile、downloadFile 合法域名，并按腾讯 COS 小程序接入要求配置白名单。COS Bucket 必须是私有读写。`miniapp/src/manifest.json` 保持 URL 合法域名检查开启。Stage 02 的真实验收结果见 `docs/stages/02-profile-upload/RESULT.md`。
+
+Stage 02 自动验证命令：`backend/.venv/Scripts/python.exe -m pytest -q`、`backend/.venv/Scripts/ruff.exe check . --no-cache`；`miniapp/pnpm typecheck`、`miniapp/pnpm build:mp-weixin`；`admin-web/pnpm typecheck`、`admin-web/pnpm build`。已用 PostgreSQL 17 验证既有库和干净临时库迁移到 `0002_profile_upload`。当前新增四张核心表、上传授权表和文件清理记录表；不包含 OCR 表。
 
 ## Codex 使用方式
 

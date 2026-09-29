@@ -16,6 +16,13 @@ class Settings(BaseSettings):
     app_env: str = "development"
     database_url: str
     log_level: str = "INFO"
+    jwt_secret: str = ""
+    wechat_app_id: str = ""
+    wechat_app_secret: str = ""
+    cos_secret_id: str = ""
+    cos_secret_key: str = ""
+    cos_bucket: str = ""
+    cos_region: str = ""
 
 
 @lru_cache

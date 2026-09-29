@@ -4,3 +4,4 @@ allowBuilds:
   esbuild: true
   core-js: false
   core-js-pure: false
+  cos-wx-sdk-v5: false

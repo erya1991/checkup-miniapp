@@ -29,11 +29,7 @@ checkup-miniapp/
 
 ## 当前阶段
 
-当前应先执行：
-
-`docs/stages/00-project-baseline/`
-
-阶段 00 验收通过后进入：
+阶段 00 已验收通过，阶段 01 尚未开始。当前下一阶段为：
 
 `docs/stages/01-foundation/`
 

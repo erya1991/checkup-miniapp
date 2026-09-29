@@ -20,18 +20,16 @@
 
 ## 2. 必须安装
 
-### 已有可继续使用
+### 已验证可继续使用
 
-项目负责人当前已有：
+项目负责人已人工确认：
+- Git 2.53.0.windows.1；
 - Python 3.12.10；
-- Docker；
-- VS Code；
-- 微信开发者工具；
-- Git（已有其它仓库使用经验）。
-
-仍需确认/安装：
-- Node.js 24 LTS；
-- pnpm 12.x。
+- Node.js 24.14.0；
+- pnpm 12.6.0；
+- Docker 29.6.1；
+- Docker Compose 5.3.0；
+- 微信开发者工具已安装并可正常使用。
 
 如果 Docker 当前安装的是 Docker Desktop，确保 Windows 下 Docker Engine 可正常启动。
 
@@ -60,7 +58,7 @@ docker compose version
 - Python 为 3.12.x，研发基线优先使用已有 3.12.10；
 - Node 主版本为 24；
 - pnpm 主版本为 12；
-- Docker Compose v2 可用。
+- Docker Desktop 自带的 Docker Compose 可用，`docker compose` CLI 命令可正常执行；不锁定具体 Compose 大版本。
 
 仓库还提供：
 

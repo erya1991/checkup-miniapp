@@ -18,5 +18,5 @@ Check-Command "pnpm" "pnpm --version"
 Check-Command "Docker" "docker --version"
 Check-Command "Docker Compose" "docker compose version"
 
-Write-Host "`nExpected baseline: Python 3.12.10, Node 24.x, pnpm 12.x, Docker Compose v2."
+Write-Host "`nExpected baseline: Python 3.12.10, Node 24.x, pnpm 12.x, and an available docker compose CLI; Compose major version is not pinned."
 Write-Host "Review docs/00-baseline/ENVIRONMENT_SETUP.md and stage 00 ACCEPTANCE.md for final validation."

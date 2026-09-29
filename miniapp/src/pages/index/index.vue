@@ -25,6 +25,9 @@ onShow(load)
 function navigate(url: string) { uni.navigateTo({ url }) }
 function upload() {
   if (!current.value) return navigate('/pages/profile-edit/index')
+  if (draft.value && ['QUEUED', 'PROCESSING', 'PENDING_CONFIRMATION', 'OCR_FAILED'].includes(draft.value.status)) {
+    return navigate(`/pages/ocr/index?id=${draft.value.id}`)
+  }
   navigate(`/pages/upload/index${draft.value ? `?id=${draft.value.id}` : ''}`)
 }
 </script>
@@ -44,7 +47,8 @@ function upload() {
     <view v-else>
       <text>当前档案：{{ current.display_name }}</text>
       <button @click="navigate('/pages/profiles/index')">切换/管理档案</button>
-      <button @click="upload">{{ draft ? '继续上传报告' : '上传报告' }}</button>
+      <button @click="navigate('/pages/ingestion-tasks/index')">识别任务记录</button>
+      <button @click="upload">{{ draft && !['UPLOADING', 'READY'].includes(draft.status) ? '查看识别状态' : draft ? '继续上传报告' : '上传报告' }}</button>
       <button v-if="draft" @click="navigate('/pages/upload/index?new=1')">新建另一份上传任务</button>
       <text v-if="draft">当前导入任务：{{ draft.status }}，{{ draft.assets.length }} 张图片</text>
     </view>

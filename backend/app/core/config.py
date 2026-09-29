@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT_ENV = Path(__file__).resolve().parents[3] / ".env"
@@ -23,6 +24,12 @@ class Settings(BaseSettings):
     cos_secret_key: str = ""
     cos_bucket: str = ""
     cos_region: str = ""
+    ocr_work_dir: str = "./runtime/ocr"
+    ocr_normal_python: str = ".venv/Scripts/python.exe"
+    ocr_paddle_python: str = ".venv-paddle/Scripts/python.exe"
+    ocr_page_timeout_seconds: int = 1800
+    ocr_task_lease_seconds: int = Field(default=1800, gt=0)
+    ocr_worker_concurrency: int = 1
 
 
 @lru_cache

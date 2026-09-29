@@ -12,6 +12,7 @@ from app.core.cos import delete_object, object_metadata, preview_url, upload_cre
 from app.models import (
     FileCleanup,
     HealthProfile,
+    OcrTask,
     ReportAsset,
     ReportIngestion,
     UploadAuthorization,
@@ -38,12 +39,21 @@ def profile_for(db: Session, user: User, profile_id: str) -> HealthProfile:
     return profile
 
 
-def ingestion_for(db: Session, user: User, ingestion_id: str) -> ReportIngestion:
-    ingestion = db.scalar(select(ReportIngestion).where(ReportIngestion.id == ingestion_id,
-                                                       ReportIngestion.user_id == user.id))
+def ingestion_for(db: Session, user: User, ingestion_id: str,
+                  lock: bool = False) -> ReportIngestion:
+    statement = select(ReportIngestion).where(ReportIngestion.id == ingestion_id,
+                                              ReportIngestion.user_id == user.id)
+    if lock:
+        statement = statement.with_for_update()
+    ingestion = db.scalar(statement)
     if not ingestion:
         missing("REPORT_NOT_FOUND")
     return ingestion
+
+
+def editable_input(ingestion: ReportIngestion) -> None:
+    if ingestion.status not in {"UPLOADING", "READY"}:
+        raise HTTPException(409, "INGESTION_INPUT_FROZEN")
 
 
 def profile_data(p: HealthProfile) -> dict:
@@ -60,7 +70,8 @@ def ingestion_data(db: Session, i: ReportIngestion) -> dict:
     assets = db.scalars(select(ReportAsset).where(ReportAsset.ingestion_id == i.id)
                         .order_by(ReportAsset.page_no)).all()
     return {"id": i.id, "health_profile_id": i.health_profile_id,
-            "mode": i.mode, "status": i.status, "assets": [asset_data(a) for a in assets]}
+            "mode": i.mode, "status": i.status, "created_at": i.created_at,
+            "assets": [asset_data(a) for a in assets]}
 
 
 class WechatLogin(BaseModel):
@@ -198,10 +209,26 @@ def create_ingestion(body: IngestionInput, user: User = USER_DEP,
 
 
 @router.get("/ingestions")
-def list_ingestions(user: User = USER_DEP, db: Session = DB_DEP):
-    rows = db.scalars(select(ReportIngestion).where(ReportIngestion.user_id == user.id)
-                      .order_by(ReportIngestion.created_at.desc())).all()
-    return [ingestion_data(db, i) for i in rows]
+def list_ingestions(health_profile_id: str | None = None, user: User = USER_DEP,
+                    db: Session = DB_DEP):
+    statement = select(ReportIngestion).where(ReportIngestion.user_id == user.id)
+    if health_profile_id is not None:
+        profile_for(db, user, health_profile_id)
+        statement = statement.where(ReportIngestion.health_profile_id == health_profile_id)
+    rows = db.scalars(statement.order_by(ReportIngestion.created_at.desc(),
+                                         ReportIngestion.id.desc())).all()
+    result = []
+    for ingestion in rows:
+        item = ingestion_data(db, ingestion)
+        item["result_summary"] = None
+        if ingestion.status == "PENDING_CONFIRMATION":
+            task = db.scalar(select(OcrTask).where(OcrTask.ingestion_id == ingestion.id,
+                                                    OcrTask.status == "SUCCEEDED")
+                             .order_by(OcrTask.run_no.desc()).limit(1))
+            if task:
+                item["result_summary"] = task.result_summary
+        result.append(item)
+    return result
 
 
 @router.get("/ingestions/{ingestion_id}")
@@ -217,7 +244,8 @@ class UploadRequest(BaseModel):
 @router.post("/ingestions/{ingestion_id}/upload-authorizations")
 def authorize_upload(ingestion_id: str, body: UploadRequest,
                      user: User = USER_DEP, db: Session = DB_DEP):
-    ingestion_for(db, user, ingestion_id)
+    i = ingestion_for(db, user, ingestion_id, lock=True)
+    editable_input(i)
     ext = {"image/jpeg": "jpg", "image/png": "png"}.get(body.mime_type)
     if not ext:
         raise HTTPException(422, "UNSUPPORTED_IMAGE_TYPE")
@@ -238,7 +266,8 @@ class AssetInput(BaseModel):
 @router.post("/ingestions/{ingestion_id}/assets", status_code=201)
 def register_asset(ingestion_id: str, body: AssetInput, user: User = USER_DEP,
                    db: Session = DB_DEP):
-    i = ingestion_for(db, user, ingestion_id)
+    i = ingestion_for(db, user, ingestion_id, lock=True)
+    editable_input(i)
     authorization = db.scalar(select(UploadAuthorization).where(
         UploadAuthorization.object_key == body.object_key,
         UploadAuthorization.ingestion_id == i.id))
@@ -273,7 +302,8 @@ class AssetOrder(BaseModel):
 @router.put("/ingestions/{ingestion_id}/assets/order")
 def reorder_assets(ingestion_id: str, body: AssetOrder, user: User = USER_DEP,
                    db: Session = DB_DEP):
-    i = ingestion_for(db, user, ingestion_id)
+    i = ingestion_for(db, user, ingestion_id, lock=True)
+    editable_input(i)
     assets = db.scalars(select(ReportAsset).where(ReportAsset.ingestion_id == i.id)).all()
     if len(body.asset_ids) != len(assets) or set(body.asset_ids) != {a.id for a in assets}:
         raise HTTPException(422, "INVALID_ASSET_ORDER")
@@ -290,7 +320,8 @@ def reorder_assets(ingestion_id: str, body: AssetOrder, user: User = USER_DEP,
 @router.delete("/ingestions/{ingestion_id}/assets/{asset_id}")
 def remove_asset(ingestion_id: str, asset_id: str, user: User = USER_DEP,
                  db: Session = DB_DEP):
-    i = ingestion_for(db, user, ingestion_id)
+    i = ingestion_for(db, user, ingestion_id, lock=True)
+    editable_input(i)
     asset = db.scalar(select(ReportAsset).where(ReportAsset.id == asset_id,
                                                 ReportAsset.ingestion_id == i.id))
     if not asset:

@@ -24,6 +24,16 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "httpx>=0.28,<1", "ruff>=0.11,<1"]
+ocr = [
+  "rapidocr==3.9.2",
+  "RapidFuzz==3.14.6",
+  "onnxruntime==1.30.0",
+  "opencv-python==5.0.0.93",
+  "numpy==2.5.3",
+  "shapely==2.1.2",
+  "pillow==12.3.0",
+  "pyclipper==1.4.0",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -31,3 +41,4 @@ testpaths = ["tests"]
 [tool.ruff]
 target-version = "py312"
 line-length = 100
+exclude = ["ocr_runtime"]

@@ -29,7 +29,7 @@ checkup-miniapp/
 
 ## 当前阶段
 
-阶段 01、阶段 02 均已验收通过。阶段 02 已完成微信登录、健康档案、报告图片上传与私有 COS 的真实主流程验收；以 `docs/stages/02-profile-upload/RESULT.md` 为准。OCR 及正式报告尚未实现。
+阶段 01、阶段 02 均已验收通过。Stage 03 已实现 OCR 任务、独立 Worker、冻结 Pipeline、结果快照、小程序处理页及按健康档案查看的识别任务记录；当前验收状态见 `docs/stages/03-ocr-integration/RESULT.md`。OCR 成功只到 `PENDING_CONFIRMATION`，不会生成正式报告或指标历史。Stage 04 尚未实施。
 
 ## Stage 02 本地运行
 
@@ -44,7 +44,23 @@ checkup-miniapp/
 
 微信开发者工具运行时，在 `miniapp/` 设置 `VITE_API_BASE_URL=https://<你的 API 域名>/api/v1` 并构建；开发者工具使用真实 AppID。微信公众平台应配置 HTTPS API 为 request 合法域名，COS 的 `https://<Bucket>.cos.<Region>.myqcloud.com` 为 request、uploadFile、downloadFile 合法域名，并按腾讯 COS 小程序接入要求配置白名单。COS Bucket 必须是私有读写。`miniapp/src/manifest.json` 保持 URL 合法域名检查开启。Stage 02 的真实验收结果见 `docs/stages/02-profile-upload/RESULT.md`。
 
-Stage 02 自动验证命令：`backend/.venv/Scripts/python.exe -m pytest -q`、`backend/.venv/Scripts/ruff.exe check . --no-cache`；`miniapp/pnpm typecheck`、`miniapp/pnpm build:mp-weixin`；`admin-web/pnpm typecheck`、`admin-web/pnpm build`。已用 PostgreSQL 17 验证既有库和干净临时库迁移到 `0002_profile_upload`。当前新增四张核心表、上传授权表和文件清理记录表；不包含 OCR 表。
+Stage 03 后端安装与启动（在 `backend/`）：
+
+```powershell
+# Python 3.12.10；普通环境包含 FastAPI、RapidOCR 和已验证解析依赖
+.venv\Scripts\python.exe -m pip install -e ".[dev,ocr]"
+# 独立 Paddle 环境；已验证模型文件在 backend/ocr_runtime/models/
+py -3.12 -m venv .venv-paddle
+.venv-paddle\Scripts\python.exe -m pip install -r ocr-paddle-requirements.txt
+.venv\Scripts\alembic.exe upgrade head
+.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+# 在另一个终端中启动唯一 Worker（concurrency=1）
+.venv\Scripts\python.exe -m app.ocr_worker
+```
+
+普通环境和 Paddle 环境的路径由 `.env` 的 `OCR_NORMAL_PYTHON`、`OCR_PADDLE_PYTHON` 指定；Linux 部署需填相应 Linux 解释器路径。`OCR_TASK_LEASE_SECONDS` 默认 1800 秒；J03 人工验收可设为 60 或 120 秒，修改后重启 Worker 并创建新 OCR 任务。Worker 续租间隔会随 lease 缩短。`OCR_WORK_DIR` 是临时目录，不能放入 Git。`backend/ocr_runtime/README.md` 记录 PoC 内容哈希、模型哈希和仅限运行入口的适配。正式运行不需要 PoC sibling 目录。使用真实私有 COS 凭据前先配置服务端环境；前端不持有永久 COS 密钥。
+
+Stage 03 自动验证命令：`backend/.venv/Scripts/python.exe -m pytest -q`、`backend/.venv/Scripts/ruff.exe check . --no-cache`、`backend/.venv/Scripts/python.exe tests/verify_postgres_queue.py`；`miniapp/pnpm typecheck`、`miniapp/pnpm build:mp-weixin`；`admin-web/pnpm typecheck`、`admin-web/pnpm build`。PoC Frozen Regression 继续在独立 PoC 仓库执行。真实医疗报告、OCR 输出和密钥不得提交；本仓库测试只使用合成或经许可的数据。
 
 ## Codex 使用方式
 
@@ -69,4 +85,4 @@ Stage 02 自动验证命令：`backend/.venv/Scripts/python.exe -m pytest -q`、
 
 ## 重要说明
 
-现有 OCR PoC / Regression 建议继续保留在独立 `checkup-ocr-poc` 仓库。正式产品仓库只接入已验证的 OCR Pipeline 能力。
+OCR PoC / Regression 继续保留在独立 `checkup-ocr-poc` 仓库。正式产品只接入已验证的 Pipeline 能力。即使识别结果含 `FINAL_REVIEW`，OCR task 仍可成功；最终状态为“识别完成，待确认”，用户确认和 commit 属于 Stage 04。

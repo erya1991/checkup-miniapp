@@ -1,0 +1,14 @@
+paddleocr==3.7.0
+paddlepaddle==3.3.0
+paddlex==3.7.2
+numpy==2.3.5
+opencv-contrib-python==4.10.0.84
+pillow==12.1.0
+shapely==2.1.2
+huggingface_hub==1.32.0
+modelscope==1.40.1
+modelscope-hub==0.4.4
+filelock==4.0.1
+networkx==3.6.1
+safetensors==0.7.0
+PyYAML==6.0.2

@@ -15,6 +15,14 @@
     {
       "path": "pages/upload/index",
       "style": { "navigationBarTitleText": "上传报告" }
+    },
+    {
+      "path": "pages/ocr/index",
+      "style": { "navigationBarTitleText": "识别处理中" }
+    },
+    {
+      "path": "pages/ingestion-tasks/index",
+      "style": { "navigationBarTitleText": "识别任务记录" }
     }
   ],
   "globalStyle": {

@@ -8,6 +8,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1.business import router as business_router
 from app.api.v1.health import router as health_router
+from app.api.v1.ocr import router as ocr_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Checkup API")
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(business_router, prefix="/api/v1")
+app.include_router(ocr_router, prefix="/api/v1")
 
 
 @app.exception_handler(StarletteHTTPException)

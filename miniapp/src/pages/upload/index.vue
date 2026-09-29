@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { ensureLogin, request, type Ingestion, type Profile, type UploadAuthorization } from '../../api'
 import { uploadImage } from '../../cos'
@@ -14,6 +14,8 @@ const error = ref('')
 const progress = ref(0)
 const uploading = ref(false)
 const failed = ref<{ path: string; size: number; mime: string }[]>([])
+const recognizing = ref(false)
+const editable = computed(() => !ingestion.value || ['UPLOADING', 'READY'].includes(ingestion.value.status))
 
 onLoad((params) => { id.value = params?.id || ''; forceNew.value = params?.new === '1' })
 onShow(load)
@@ -61,6 +63,7 @@ async function refreshPreviews() {
   urls.value = next
 }
 async function choose(sourceType: 'camera' | 'album') {
+  if (!editable.value) return
   try {
     const result = await uni.chooseImage({ count: 9, sourceType: [sourceType], sizeType: ['original'] })
     const tempFiles = Array.isArray(result.tempFiles) ? result.tempFiles : [result.tempFiles]
@@ -74,6 +77,7 @@ async function choose(sourceType: 'camera' | 'album') {
   }
 }
 async function upload(file: { path: string; size: number; mime: string }) {
+  if (!editable.value) return
   uploading.value = true; progress.value = 0; error.value = ''
   try {
     if (file.size <= 0 || file.size > 20_000_000) throw new Error('图片大小必须在 20 MB 以内')
@@ -91,7 +95,7 @@ async function upload(file: { path: string; size: number; mime: string }) {
   } finally { uploading.value = false }
 }
 async function move(index: number, direction: number) {
-  if (!ingestion.value) return
+  if (!ingestion.value || !editable.value) return
   const target = index + direction
   if (target < 0 || target >= ingestion.value.assets.length) return
   const ids = ingestion.value.assets.map(a => a.id)
@@ -100,6 +104,7 @@ async function move(index: number, direction: number) {
   catch (e) { error.value = e instanceof Error ? e.message : '排序失败' }
 }
 async function remove(assetId: string) {
+  if (!editable.value) return
   const confirmation = await uni.showModal({ title: '删除图片', content: '确认删除这张原始图片？' })
   if (!confirmation.confirm) return
   try {
@@ -111,6 +116,17 @@ function preview(assetId: string) {
   const ordered = ingestion.value?.assets.map(a => urls.value[a.id]).filter(Boolean) || []
   if (ordered.length) uni.previewImage({ current: urls.value[assetId], urls: ordered })
 }
+async function recognize() {
+  if (!ingestion.value || ingestion.value.status !== 'READY' || recognizing.value) return
+  recognizing.value = true; error.value = ''
+  try {
+    await request(`/ingestions/${id.value}/recognize`, 'POST')
+    ingestion.value = await request<Ingestion>(`/ingestions/${id.value}`)
+    uni.navigateTo({ url: `/pages/ocr/index?id=${id.value}` })
+  } catch (e) { error.value = e instanceof Error ? e.message : '开始识别失败' }
+  finally { recognizing.value = false }
+}
+function showOcr() { uni.navigateTo({ url: `/pages/ocr/index?id=${id.value}` }) }
 </script>
 
 <template>
@@ -126,18 +142,22 @@ function preview(assetId: string) {
         <view v-for="(asset, index) in ingestion.assets" :key="asset.id" class="asset">
           <image :src="urls[asset.id]" mode="aspectFit" @click="preview(asset.id)" />
           <text>第 {{ asset.page_no }} 页 · 已上传</text>
-          <button size="mini" :disabled="index === 0" @click="move(index, -1)">上移</button>
-          <button size="mini" :disabled="index === ingestion.assets.length - 1" @click="move(index, 1)">下移</button>
-          <button size="mini" @click="remove(asset.id)">删除</button>
+          <button v-if="editable" size="mini" :disabled="index === 0" @click="move(index, -1)">上移</button>
+          <button v-if="editable" size="mini" :disabled="index === ingestion.assets.length - 1" @click="move(index, 1)">下移</button>
+          <button v-if="editable" size="mini" @click="remove(asset.id)">删除</button>
         </view>
       </view>
       <text v-if="uploading">上传中 {{ progress }}%</text>
-      <button :disabled="uploading" @click="choose('camera')">拍照上传</button>
-      <button :disabled="uploading" @click="choose('album')">从相册选图/追加</button>
-      <view v-for="file in failed" :key="file.path">
+      <button v-if="editable" :disabled="uploading" @click="choose('camera')">拍照上传</button>
+      <button v-if="editable" :disabled="uploading" @click="choose('album')">从相册选图/追加</button>
+      <view v-for="file in (editable ? failed : [])" :key="file.path">
         <text>上传失败，可重试</text><button :disabled="uploading" @click="upload(file)">重试</button>
       </view>
-      <text v-if="ingestion?.status === 'READY'">图片已准备好。下一阶段接入 OCR，本阶段不会开始识别。</text>
+      <button v-if="ingestion?.status === 'READY'" :disabled="recognizing || uploading" @click="recognize">开始识别</button>
+      <view v-if="ingestion && !editable">
+        <text>已进入识别，原图可继续预览，图片内容与页序已锁定。</text>
+        <button @click="showOcr">查看识别状态</button>
+      </view>
     </view>
   </view>
 </template>

@@ -1,0 +1,33 @@
+{
+  "version": "0.1",
+  "profiles": {
+    "HCT": {
+      "allowMissingSourceUnit": true,
+      "representations": [
+        {
+          "canonicalUnit": "L/L",
+          "valueMin": 0,
+          "valueMax": 1,
+          "description": "红细胞比积以比例值表达"
+        },
+        {
+          "canonicalUnit": "%",
+          "valueMin": 1,
+          "valueMax": 100,
+          "description": "红细胞比积以百分数表达"
+        }
+      ]
+    },
+    "PCT": {
+      "allowMissingSourceUnit": true,
+      "representations": [
+        {
+          "canonicalUnit": "%",
+          "valueMin": 0,
+          "valueMax": 1,
+          "description": "血小板比积常用百分数数值表达"
+        }
+      ]
+    }
+  }
+}

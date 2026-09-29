@@ -4,7 +4,20 @@ export interface Profile {
   id: string; display_name: string; relation: string; gender: string | null; birth_date: string | null
 }
 export interface Asset { id: string; page_no: number; mime_type: string; file_size: number; upload_status: string }
-export interface Ingestion { id: string; health_profile_id: string; status: string; assets: Asset[] }
+export interface OcrCounts { total_count: number; auto_count: number; review_count: number }
+export interface Ingestion {
+  id: string; health_profile_id: string; status: string; created_at: string; assets: Asset[]
+  result_summary?: OcrCounts | null
+}
+export interface OcrStatus {
+  ingestion_status: string
+  task: null | {
+    id: string; run_no: number; status: string; attempt_count: number
+    started_at: string | null; finished_at: string | null
+    result_summary: null | OcrCounts
+    error_code: string | null
+  }
+}
 export interface UploadAuthorization {
   object_key: string; bucket: string; region: string; start_time: number; expired_time: number
   credentials: { tmpSecretId: string; tmpSecretKey: string; sessionToken: string }

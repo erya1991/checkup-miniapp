@@ -29,9 +29,20 @@ checkup-miniapp/
 
 ## 当前阶段
 
-阶段 00 已验收通过，阶段 01 尚未开始。当前下一阶段为：
+阶段 00 已验收通过；阶段 01 工程骨架已实现，验收结果以 `docs/stages/01-foundation/RESULT.md` 为准。当前工程只包含健康检查和占位页，不包含业务闭环。
 
 `docs/stages/01-foundation/`
+
+## Stage 01 本地运行
+
+| 工程 | 已实现入口 | 操作 |
+| --- | --- | --- |
+| PostgreSQL 17 | 根目录 `compose.yaml` | 复制 `.env.example` 为 `.env`，执行 `docker compose up -d postgres` |
+| Backend | `GET /api/v1/health` | 按 `backend/README.md` 创建 Python 3.12 虚拟环境、安装依赖、执行迁移并启动 |
+| Miniapp | 单一占位首页 | 在 `miniapp/` 执行 `pnpm install`、`pnpm typecheck`、`pnpm build:mp-weixin` |
+| Admin Web | `/` 占位首页 | 在 `admin-web/` 执行 `pnpm install`、`pnpm dev`、`pnpm build` |
+
+两个前端分别维护 `pnpm-lock.yaml`。真实 `.env` 不提交；后端使用 `DATABASE_URL`、`APP_ENV`、`LOG_LEVEL`。微信与 COS 配置尚未接入。当前数据库只有 Alembic 版本表，没有业务表。实际验收和未完成项见 Stage 01 RESULT。
 
 ## Codex 使用方式
 

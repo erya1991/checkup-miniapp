@@ -1,5 +1,12 @@
-# Admin Web
+# Admin Web（Stage 01）
 
-正式 Vue3 + Vite + Element Plus + TypeScript 轻量管理后台目录。
+Vue 3 + Vite + TypeScript + Element Plus + Vue Router 的占位工程，无登录和业务菜单。
 
-V1.0 仅服务于标准指标/别名/报告分类维护和 OCR 问题排查，不建设复杂运营平台。
+```powershell
+pnpm install
+pnpm typecheck
+pnpm dev --host 127.0.0.1
+pnpm build
+```
+
+开发页面为 `http://127.0.0.1:5173/`。此阶段只验证路由与占位首页渲染。

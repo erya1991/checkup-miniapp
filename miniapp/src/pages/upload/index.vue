@@ -15,6 +15,7 @@ const progress = ref(0)
 const uploading = ref(false)
 const failed = ref<{ path: string; size: number; mime: string }[]>([])
 const recognizing = ref(false)
+const manualizing = ref(false)
 const editable = computed(() => !ingestion.value || ['UPLOADING', 'READY'].includes(ingestion.value.status))
 
 onLoad((params) => { id.value = params?.id || ''; forceNew.value = params?.new === '1' })
@@ -117,7 +118,7 @@ function preview(assetId: string) {
   if (ordered.length) uni.previewImage({ current: urls.value[assetId], urls: ordered })
 }
 async function recognize() {
-  if (!ingestion.value || ingestion.value.status !== 'READY' || recognizing.value) return
+  if (!ingestion.value || ingestion.value.status !== 'READY' || recognizing.value || manualizing.value) return
   recognizing.value = true; error.value = ''
   try {
     await request(`/ingestions/${id.value}/recognize`, 'POST')
@@ -126,7 +127,19 @@ async function recognize() {
   } catch (e) { error.value = e instanceof Error ? e.message : '开始识别失败' }
   finally { recognizing.value = false }
 }
-function showOcr() { uni.navigateTo({ url: `/pages/ocr/index?id=${id.value}` }) }
+function showOcr() {
+  const page = ingestion.value?.status === 'PENDING_CONFIRMATION' ? 'confirmation' : 'ocr'
+  uni.navigateTo({ url: `/pages/${page}/index?id=${id.value}` })
+}
+async function manual() {
+  if (recognizing.value || manualizing.value || uploading.value) return
+  manualizing.value = true; error.value = ''
+  try {
+    await request(`/ingestions/${id.value}/manual`, 'POST')
+    uni.navigateTo({ url: `/pages/confirmation/index?id=${id.value}` })
+  } catch (e) { error.value = e instanceof Error ? e.message : '手工录入失败' }
+  finally { manualizing.value = false }
+}
 </script>
 
 <template>
@@ -153,10 +166,12 @@ function showOcr() { uni.navigateTo({ url: `/pages/ocr/index?id=${id.value}` }) 
       <view v-for="file in (editable ? failed : [])" :key="file.path">
         <text>上传失败，可重试</text><button :disabled="uploading" @click="upload(file)">重试</button>
       </view>
-      <button v-if="ingestion?.status === 'READY'" :disabled="recognizing || uploading" @click="recognize">开始识别</button>
+      <button v-if="ingestion?.status === 'READY'" :disabled="recognizing || uploading || manualizing" @click="recognize">开始识别</button>
+      <button v-if="['READY', 'OCR_FAILED'].includes(ingestion?.status || '')" :disabled="recognizing || uploading || manualizing" @click="manual">保留原图，手工录入</button>
       <view v-if="ingestion && !editable">
         <text>已进入识别，原图可继续预览，图片内容与页序已锁定。</text>
-        <button @click="showOcr">查看识别状态</button>
+        <button v-if="ingestion.status !== 'CONFIRMED'" @click="showOcr">{{ ingestion.status === 'PENDING_CONFIRMATION' ? '确认检验结果' : '查看识别状态' }}</button>
+        <text v-else>报告已保存</text>
       </view>
     </view>
   </view>

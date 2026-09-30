@@ -12,11 +12,17 @@ test('upload states reopen the image confirmation page', () => {
   }
 })
 
-test('OCR states, including an older completed task, reopen the Stage 03 status page', () => {
-  for (const status of ['QUEUED', 'PROCESSING', 'OCR_FAILED', 'PENDING_CONFIRMATION']) {
+test('active and failed OCR states reopen the OCR status page', () => {
+  for (const status of ['QUEUED', 'PROCESSING', 'OCR_FAILED']) {
     assert.equal(taskDestination({ id: 'old-task', status }), '/pages/ocr/index?id=old-task')
   }
   assert.equal(taskStatusLabels.PENDING_CONFIRMATION, '识别完成，待确认')
+})
+
+test('old pending tasks open real confirmation and confirmed tasks show no formal report route', () => {
+  assert.equal(taskDestination({ id: 'old/task', status: 'PENDING_CONFIRMATION' }), '/pages/confirmation/index?id=old%2Ftask')
+  assert.equal(taskDestination({ id: 'saved-task', status: 'CONFIRMED' }), null)
+  assert.equal(taskStatusLabels.CONFIRMED, '已保存')
 })
 
 test('unknown states do not navigate to an unrelated page', () => {

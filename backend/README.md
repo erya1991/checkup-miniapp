@@ -1,6 +1,6 @@
-# Backend（Stage 03）
+# Backend（Stage 04，人工验收待完成）
 
-提供健康检查、微信 code 登录、健康档案、COS 原图资产，以及 Stage 03 的 OCR 任务、持久化队列与独立 Worker。迁移 `0003_ocr` 增加 OcrTask / OcrResultItem 并扩展 ingestion 状态。识别成功只到 `PENDING_CONFIRMATION`，不生成正式健康数据。
+提供健康检查、微信 code 登录、健康档案、COS 原图资产、OCR 任务/持久化队列/独立 Worker，以及 Stage 04 确认和 commit。`0003_ocr` 增加不可变机器快照；`0004_confirmation_report` 增加报告确认字段及 StandardMetric / ConfirmationItem / LabReport / LabResult。识别成功只到 `PENDING_CONFIRMATION`；用户处理全部 REVIEW 并显式 commit 后才生成正式数据。Stage 04 当前 FAIL，原因是微信人工验收尚未完成，见阶段 RESULT。
 
 在仓库根目录复制 `.env.example` 为不提交的 `.env`，设置 `POSTGRES_*` 与一致的 `DATABASE_URL`，以及至少 32 字符的 `JWT_SECRET`、微信 `WECHAT_APP_ID` / `WECHAT_APP_SECRET`、私有 COS 的 `COS_SECRET_ID` / `COS_SECRET_KEY` / `COS_BUCKET` / `COS_REGION`。先运行 `docker compose up -d postgres`。永久密钥不得进入 Git 或小程序。
 
@@ -23,6 +23,23 @@ py -3.12 -m venv .venv-paddle
 .\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\ruff.exe check .
 .\.venv\Scripts\python.exe tests\verify_postgres_queue.py
+.\.venv\Scripts\python.exe tests\verify_postgres_confirmation.py
 ```
 
 配置读取仓库根目录 `.env` 或进程环境变量；`DATABASE_URL` 必填。常规 pytest mock 微信身份交换和 COS 服务端操作；独立的 PostgreSQL 队列脚本使用唯一命名临时数据库。COS 授权仅对一个随机 object key 开放 15 分钟 PutObject；登记时后端 HEAD 验证对象大小；原图预览通过短时签名 URL。删除原图时同步调用 COS 删除，失败保留 Asset 和持久化 `file_cleanups.PENDING`，用户可重试删除。已有导入任务的健康档案禁止删除。
+
+Stage 04 路由（前缀 `/api/v1`）：
+
+| 方法 | 路径 | 行为 |
+| --- | --- | --- |
+| GET | `/ingestions/{id}/confirmation` | ingestion 行锁下幂等初始化旧 OCR 工作区，返回报告信息、确认项、原图页信息 |
+| PATCH / PUT | `/ingestions/{id}/confirmation` | 修改医院、检验日期/时间、编号、分类、本人 ACTIVE 档案 |
+| POST | `/ingestions/{id}/confirmation/items` | 手工补项 |
+| PATCH / PUT | `/ingestions/{id}/confirmation/items/{item_id}` | 五种处理和最终值编辑，不修改 OcrResultItem |
+| POST | `/ingestions/{id}/manual` | READY/OCR_FAILED 保留原图转手工；重复转换幂等 |
+| GET | `/standard-metrics?q=` | code/name 只读搜索，最多 100 条 |
+| POST | `/ingestions/{id}/commit` | 校验、重复检查、单事务创建，重复请求返回相同 report_id |
+
+`app/confirmation.py` 负责来源校验、编辑、保守数值解析、duplicate 和 commit；API 模块负责资源所有权、行锁、单次 commit/rollback 和序列化。commit 还锁定当前档案以串行处理同档案的并发重复检查；不同 ingestion 不会仅靠 Python if 保障幂等。三个来源字段分别具有数据库 UNIQUE。疑似重复错误 `DUPLICATE_CONFIRM_REQUIRED` 的 details 包含最小候选摘要和绑定当前值/保存版本/候选集的 HMAC acknowledgement；用户明确继续后再传 `duplicate_acknowledgement`。数据修改后重新提示。检验日期必须人工填写，绝不补上传日期。
+
+seed v1 在 migration 中一次性导入，未知 code 不自动建主数据；未来扩充需新版本和新增迁移，不能修改已应用的 0004。PostgreSQL Stage 04 验证脚本验证两座临时库、真实数据库异常回滚、并发初始化与 commit，最后仅删除本次创建的库。普通请求异常日志不输出 SQL 参数，避免医疗值进入日志。

@@ -24,7 +24,7 @@ export interface UploadAuthorization {
 }
 
 export class ApiError extends Error {
-  constructor(public status: number, public code: string) { super(code) }
+  constructor(public status: number, public code: string, public details: Record<string, unknown> = {}) { super(code) }
 }
 
 export function token() { return uni.getStorageSync('authToken') as string || '' }
@@ -36,9 +36,9 @@ export async function request<T>(path: string, method: 'GET' | 'POST' | 'PUT' | 
     header: token() ? { Authorization: `Bearer ${token()}` } : {},
   })
   if (response.statusCode < 200 || response.statusCode >= 300) {
-    const body = response.data as { code?: string }
+    const body = response.data as { code?: string; details?: Record<string, unknown> }
     if (response.statusCode === 401) clearToken()
-    throw new ApiError(response.statusCode, body?.code || 'REQUEST_FAILED')
+    throw new ApiError(response.statusCode, body?.code || 'REQUEST_FAILED', body?.details || {})
   }
   return response.data as T
 }

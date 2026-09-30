@@ -21,6 +21,10 @@
       "style": { "navigationBarTitleText": "识别处理中" }
     },
     {
+      "path": "pages/confirmation/index",
+      "style": { "navigationBarTitleText": "确认检验报告" }
+    },
+    {
       "path": "pages/ingestion-tasks/index",
       "style": { "navigationBarTitleText": "识别任务记录" }
     }

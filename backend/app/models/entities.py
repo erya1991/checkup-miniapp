@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from uuid import uuid4
 
@@ -11,6 +11,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    Time,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -57,6 +58,14 @@ class ReportIngestion(Base):
     health_profile_id: Mapped[str] = mapped_column(ForeignKey("health_profiles.id"), index=True)
     mode: Mapped[str] = mapped_column(String(16), default="OCR")
     status: Mapped[str] = mapped_column(String(32), default="UPLOADING")
+    hospital_name: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    examination_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    examination_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    report_no: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    report_category: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    confirmation_initialized_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
 
@@ -143,4 +152,76 @@ class OcrResultItem(Base):
     review_category: Mapped[str | None] = mapped_column(String(32), nullable=True)
     evidence: Mapped[dict] = mapped_column(JSON)
     payload: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class StandardMetric(Base):
+    __tablename__ = "standard_metrics"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    code: Mapped[str] = mapped_column(String(64), unique=True)
+    name: Mapped[str] = mapped_column(String(256))
+    status: Mapped[str] = mapped_column(String(16), default="ACTIVE")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+
+
+class ResultFields:
+    """Final candidate/value columns; never used to update a machine snapshot."""
+
+    sequence_no: Mapped[int] = mapped_column(Integer)
+    metric_name: Mapped[str] = mapped_column(Text)
+    standard_metric_id: Mapped[str | None] = mapped_column(
+        ForeignKey("standard_metrics.id"), nullable=True)
+    result_text: Mapped[str] = mapped_column(Text)
+    result_numeric: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
+    comparator: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    unit_original: Mapped[str | None] = mapped_column(Text, nullable=True)
+    unit_normalized: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    reference_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reference_low: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
+    reference_high: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
+    abnormal: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+
+class ConfirmationItem(ResultFields, Base):
+    __tablename__ = "confirmation_items"
+    __table_args__ = (UniqueConstraint("ingestion_id", "sequence_no"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    ingestion_id: Mapped[str] = mapped_column(ForeignKey("report_ingestions.id"), index=True)
+    source_ocr_result_item_id: Mapped[str | None] = mapped_column(
+        ForeignKey("ocr_result_items.id"), unique=True, nullable=True)
+    source_type: Mapped[str] = mapped_column(String(16))
+    review_status: Mapped[str] = mapped_column(String(16))
+    resolution: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+
+
+class LabReport(Base):
+    __tablename__ = "lab_reports"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    health_profile_id: Mapped[str] = mapped_column(ForeignKey("health_profiles.id"), index=True)
+    source_ingestion_id: Mapped[str] = mapped_column(ForeignKey("report_ingestions.id"), unique=True)
+    hospital_name: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    examination_date: Mapped[date] = mapped_column(Date, index=True)
+    examination_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    report_no: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    report_category: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    has_manual_correction: Mapped[bool] = mapped_column(default=False)
+    has_manual_items: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+
+
+class LabResult(ResultFields, Base):
+    __tablename__ = "lab_results"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    report_id: Mapped[str] = mapped_column(ForeignKey("lab_reports.id"), index=True)
+    health_profile_id: Mapped[str] = mapped_column(ForeignKey("health_profiles.id"), index=True)
+    source_confirmation_item_id: Mapped[str] = mapped_column(
+        ForeignKey("confirmation_items.id"), unique=True)
+    data_source: Mapped[str] = mapped_column(String(16))
+    examination_date: Mapped[date] = mapped_column(Date, index=True)
+    examination_time: Mapped[time | None] = mapped_column(Time, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)

@@ -1,0 +1,18 @@
+{
+  "version": "stage04-v1",
+  "source": "Product-side curated identity subset of the frozen Stage 03 PoC library. No aliases, units, reference ranges or algorithm rules are imported.",
+  "metrics": [
+    {"code": "ALT", "name": "丙氨酸氨基转移酶"},
+    {"code": "AST", "name": "天门冬氨酸氨基转移酶"},
+    {"code": "TP", "name": "总蛋白"},
+    {"code": "ALB", "name": "白蛋白"},
+    {"code": "TBIL", "name": "总胆红素"},
+    {"code": "DBIL", "name": "直接胆红素"},
+    {"code": "WBC", "name": "白细胞计数"},
+    {"code": "RBC", "name": "红细胞计数"},
+    {"code": "HGB", "name": "血红蛋白"},
+    {"code": "PLT", "name": "血小板计数"},
+    {"code": "GLU", "name": "葡萄糖"},
+    {"code": "CREA", "name": "肌酐"}
+  ]
+}

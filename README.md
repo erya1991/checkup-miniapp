@@ -29,15 +29,15 @@ checkup-miniapp/
 
 ## 当前阶段
 
-阶段 01、阶段 02 均已验收通过。Stage 03 已实现 OCR 任务、独立 Worker、冻结 Pipeline、结果快照、小程序处理页及按健康档案查看的识别任务记录；当前验收状态见 `docs/stages/03-ocr-integration/RESULT.md`。OCR 成功只到 `PENDING_CONFIRMATION`，不会生成正式报告或指标历史。Stage 04 尚未实施。
+Stage 00～03 已验收通过。Stage 04 已实现人工确认工作区、报告信息、标准指标选择、手工补项/兜底、疑似重复提示和事务安全的正式报告生成。**Stage 04 = FAIL：真实微信人工验收由项目负责人执行，尚未取得验收结果**，逐项状态见 [Stage 04 RESULT](docs/stages/04-confirmation-report/RESULT.md)。OCR 成功只到 `PENDING_CONFIRMATION`，必须经过用户人工确认和最终 commit 才生成正式 `LabReport / LabResult`。Stage 05 正式报告列表、详情、删除和已保存报告迁移尚未实现；Stage 06/07 未进入。
 
-## Stage 02 本地运行
+## 本地运行
 
 | 工程 | 已实现入口 | 操作 |
 | --- | --- | --- |
 | PostgreSQL 17 | 根目录 `compose.yaml` | 复制 `.env.example` 为 `.env`，执行 `docker compose up -d postgres` |
 | Backend | `GET /api/v1/health` | 按 `backend/README.md` 创建 Python 3.12 虚拟环境、安装依赖、执行迁移并启动 |
-| Miniapp | 登录、档案、上传和图片确认页 | 在 `miniapp/` 执行 `pnpm install`、`pnpm typecheck`、`pnpm build:mp-weixin`；将 `dist/build/mp-weixin` 导入微信开发者工具 |
+| Miniapp | 登录、档案、上传、OCR 状态/任务记录、统一确认页 | 在 `miniapp/` 执行 `pnpm install`、`pnpm test`、`pnpm typecheck`、`pnpm build:mp-weixin`；将 `dist/build/mp-weixin` 导入微信开发者工具 |
 | Admin Web | `/` 占位首页 | 在 `admin-web/` 执行 `pnpm install`、`pnpm dev`、`pnpm build` |
 
 两个前端分别维护 `pnpm-lock.yaml`。真实 `.env` 不提交。后端运行前需将 `.env.example` 复制为 `.env`，设置 `DATABASE_URL`、至少 32 字符随机 `JWT_SECRET`、`WECHAT_APP_ID`、`WECHAT_APP_SECRET`、`COS_SECRET_ID`、`COS_SECRET_KEY`、`COS_BUCKET`、`COS_REGION`。执行 `docker compose up -d postgres`，在 `backend/` 执行 `.venv/Scripts/alembic.exe upgrade head` 和 `.venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000`。后端通过微信服务端 code 交换用户身份，签发自己的 Token；COS 永久密钥只在服务端使用。
@@ -60,7 +60,11 @@ py -3.12 -m venv .venv-paddle
 
 普通环境和 Paddle 环境的路径由 `.env` 的 `OCR_NORMAL_PYTHON`、`OCR_PADDLE_PYTHON` 指定；Linux 部署需填相应 Linux 解释器路径。`OCR_TASK_LEASE_SECONDS` 默认 1800 秒；J03 人工验收可设为 60 或 120 秒，修改后重启 Worker 并创建新 OCR 任务。Worker 续租间隔会随 lease 缩短。`OCR_WORK_DIR` 是临时目录，不能放入 Git。`backend/ocr_runtime/README.md` 记录 PoC 内容哈希、模型哈希和仅限运行入口的适配。正式运行不需要 PoC sibling 目录。使用真实私有 COS 凭据前先配置服务端环境；前端不持有永久 COS 密钥。
 
-Stage 03 自动验证命令：`backend/.venv/Scripts/python.exe -m pytest -q`、`backend/.venv/Scripts/ruff.exe check . --no-cache`、`backend/.venv/Scripts/python.exe tests/verify_postgres_queue.py`；`miniapp/pnpm typecheck`、`miniapp/pnpm build:mp-weixin`；`admin-web/pnpm typecheck`、`admin-web/pnpm build`。PoC Frozen Regression 继续在独立 PoC 仓库执行。真实医疗报告、OCR 输出和密钥不得提交；本仓库测试只使用合成或经许可的数据。
+自动验证：在 `backend/` 执行 `.venv/Scripts/python.exe -m pytest -q`、`.venv/Scripts/ruff.exe check . --no-cache`、`.venv/Scripts/python.exe tests/verify_postgres_queue.py`、`.venv/Scripts/python.exe tests/verify_postgres_confirmation.py`；在 `miniapp/` 执行 `pnpm test`、`pnpm typecheck`、`pnpm build:mp-weixin`；在 `admin-web/` 执行 `pnpm typecheck`、`pnpm build`。PostgreSQL 脚本创建唯一命名临时库并自行删除，要求 PostgreSQL 17 及创建临时库权限。PoC Frozen Regression 继续在独立 PoC 仓库执行。真实医疗报告、OCR 输出和密钥不得提交；本仓库测试只使用合成或经许可的数据。
+
+Stage 04 migration 为 `0004_confirmation_report`，从 `0003_ocr` 增量升级，不改写前三个版本。迁移导入 `backend/migrations/data/standard_metrics_v1.json` 的 12 条产品侧最小标准指标；启动、Worker 和确认 API 不从 OCR 指标库反写主数据。旧待确认任务首次访问 `/ingestions/{id}/confirmation` 幂等初始化，无需重新识别。纯手工录入仍必须先上传原图。确认更新支持 PATCH/PUT，小程序使用 PUT。commit 成功仅显示结果数量及完成反馈。
+
+当前验证：Backend 52 passed、Ruff PASS；PostgreSQL 17 迁移/并发初始化/事务回滚/并发 commit/唯一约束 PASS，原有 59 项任务初始化幂等且全部机器快照未变；Miniapp 13 tests/typecheck/build PASS；Admin typecheck/build PASS。真实微信 W01～W04 尚未执行，不作为阶段 PASS。接手规则见 [PROJECT_CONTEXT](PROJECT_CONTEXT.md)，运行与模块说明见 [开发交接文档](检查单小程序_开发交接文档.md)。
 
 ## Codex 使用方式
 
@@ -85,4 +89,4 @@ Stage 03 自动验证命令：`backend/.venv/Scripts/python.exe -m pytest -q`、
 
 ## 重要说明
 
-OCR PoC / Regression 继续保留在独立 `checkup-ocr-poc` 仓库。正式产品只接入已验证的 Pipeline 能力。即使识别结果含 `FINAL_REVIEW`，OCR task 仍可成功；最终状态为“识别完成，待确认”，用户确认和 commit 属于 Stage 04。
+OCR PoC / Regression 继续保留在独立 `checkup-ocr-poc` 仓库。正式产品只接入已验证的 Pipeline 能力。即使识别结果含 `FINAL_REVIEW`，OCR task 仍可成功；最终状态为“识别完成，待确认”。Stage 04 只编辑 `ConfirmationItem`，不覆盖机器快照；全部 REVIEW resolved 后，由用户 commit 生成正式数据。

@@ -3,12 +3,15 @@ from time import perf_counter
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1.business import router as business_router
+from app.api.v1.confirmation import router as confirmation_router
 from app.api.v1.health import router as health_router
 from app.api.v1.ocr import router as ocr_router
+from app.confirmation import ConfirmationError
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 
@@ -22,6 +25,15 @@ app = FastAPI(title="Checkup API")
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(business_router, prefix="/api/v1")
 app.include_router(ocr_router, prefix="/api/v1")
+app.include_router(confirmation_router, prefix="/api/v1")
+
+
+@app.exception_handler(ConfirmationError)
+async def confirmation_error(request: Request, exc: ConfirmationError) -> JSONResponse:
+    return JSONResponse(status_code=exc.status, content=jsonable_encoder({
+        "code": exc.code, "message": exc.code,
+        "request_id": request.state.request_id, "details": exc.details,
+    }))
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -46,8 +58,10 @@ async def request_logging(request: Request, call_next):
     started = perf_counter()
     try:
         response = await call_next(request)
-    except Exception:
-        logger.exception("request_id=%s path=%s error_code=INTERNAL_ERROR", request_id, request.url.path)
+    except Exception:  # noqa: BLE001 - do not expose SQL bound medical values
+        # SQLAlchemy exception strings can include bound medical values. Keep
+        # ordinary request logs to identifiers and stable codes only.
+        logger.error("request_id=%s path=%s error_code=INTERNAL_ERROR", request_id, request.url.path)
         response = JSONResponse(
             status_code=500,
             content={"code": "INTERNAL_ERROR", "message": "Internal server error", "request_id": request_id, "details": {}},

@@ -44,7 +44,7 @@ def ingestion_for(db: Session, user: User, ingestion_id: str,
     statement = select(ReportIngestion).where(ReportIngestion.id == ingestion_id,
                                               ReportIngestion.user_id == user.id)
     if lock:
-        statement = statement.with_for_update()
+        statement = statement.with_for_update().execution_options(populate_existing=True)
     ingestion = db.scalar(statement)
     if not ingestion:
         missing("REPORT_NOT_FOUND")

@@ -29,7 +29,9 @@ checkup-miniapp/
 
 ## 当前阶段
 
-Stage 00～03 已验收通过。Stage 04 已实现人工确认工作区、报告信息、标准指标选择、手工补项/兜底、疑似重复提示和事务安全的正式报告生成。**Stage 04 = FAIL：真实微信人工验收由项目负责人执行，尚未取得验收结果**，逐项状态见 [Stage 04 RESULT](docs/stages/04-confirmation-report/RESULT.md)。OCR 成功只到 `PENDING_CONFIRMATION`，必须经过用户人工确认和最终 commit 才生成正式 `LabReport / LabResult`。Stage 05 正式报告列表、详情、删除和已保存报告迁移尚未实现；Stage 06/07 未进入。
+Stage 00～04 已验收通过。**Stage 04 = PASS**，已完成人工确认工作区、报告信息确认、AUTO/REVIEW 处理、StandardMetric 选择、手工补项/纯手工兜底、疑似重复提示，以及事务安全、幂等的正式 `LabReport / LabResult` 生成。项目负责人已在真实微信小程序中完成 W01～W04 人工验收，逐项证据见 [Stage 04 RESULT](docs/stages/04-confirmation-report/RESULT.md)。
+
+OCR 成功只到 `PENDING_CONFIRMATION`，必须经过用户人工确认和最终 commit；只有 commit 后的 `LabReport / LabResult` 才是正式健康数据。**Stage 05 尚未开始实施**，正式报告列表、详情、删除和已保存报告档案迁移尚未实现；Stage 06/07 未进入。
 
 ## 本地运行
 
@@ -64,7 +66,7 @@ py -3.12 -m venv .venv-paddle
 
 Stage 04 migration 为 `0004_confirmation_report`，从 `0003_ocr` 增量升级，不改写前三个版本。迁移导入 `backend/migrations/data/standard_metrics_v1.json` 的 12 条产品侧最小标准指标；启动、Worker 和确认 API 不从 OCR 指标库反写主数据。旧待确认任务首次访问 `/ingestions/{id}/confirmation` 幂等初始化，无需重新识别。纯手工录入仍必须先上传原图。确认更新支持 PATCH/PUT，小程序使用 PUT。commit 成功仅显示结果数量及完成反馈。
 
-当前验证：Backend 52 passed、Ruff PASS；PostgreSQL 17 迁移/并发初始化/事务回滚/并发 commit/唯一约束 PASS，原有 59 项任务初始化幂等且全部机器快照未变；Miniapp 13 tests/typecheck/build PASS；Admin typecheck/build PASS。真实微信 W01～W04 尚未执行，不作为阶段 PASS。接手规则见 [PROJECT_CONTEXT](PROJECT_CONTEXT.md)，运行与模块说明见 [开发交接文档](检查单小程序_开发交接文档.md)。
+验收证据：Backend 52 passed、Ruff PASS；PostgreSQL 17 迁移/并发初始化/事务回滚/并发 commit/唯一约束 PASS，原有 59 项任务初始化幂等且全部机器快照未变；Miniapp 13 tests/typecheck/build PASS；Admin typecheck/build PASS。以上为已执行的工程验证；真实微信 W01～W04 已由项目负责人手动验收，全部 PASS。本次仅更新文档，未重复执行上述测试链路。
 
 ## Codex 使用方式
 

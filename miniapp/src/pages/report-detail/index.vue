@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { request, type Profile } from '../../api'
-import { abnormalLabel, migrateWithConfirmation, deletedReportDestination, type ReportDetail } from '../../reports'
+import { displayUnit, abnormalLabel, migrateWithConfirmation, deletedReportDestination, type ReportDetail } from '../../reports'
 const id = ref('')
 const report = ref<ReportDetail | null>(null)
 const loading = ref(false)
@@ -80,7 +80,7 @@ function assets() { uni.navigateTo({ url: `/pages/report-assets/index?id=${encod
       <button @click="assets">查看原始报告</button>
       <view v-for="item in report.results" :key="item.id" class="card">
         <text>{{ item.metric_name }}</text>
-        <text>{{ item.result_text }} {{ item.unit_original || item.unit_normalized || '' }} {{ abnormalLabel(item.abnormal) }}</text>
+        <text>{{ item.result_text }} {{ displayUnit(item) }} {{ abnormalLabel(item.abnormal) }}</text>
         <text v-if="item.reference_text">参考范围：{{ item.reference_text }}</text>
         <text>{{ item.standard_metric ? `标准指标：${item.standard_metric.name}（${item.standard_metric.code}）` : '未关联标准指标' }}</text>
       </view>

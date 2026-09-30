@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from app.core import cos
 from app.db.session import create_db_engine, create_session_factory
-from app.models import FileCleanup
+from app.models import FileCleanup, ReportAsset
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +17,11 @@ def process_cleanup(db, cleanup):
         return True
     try:
         if cleanup.target_type == "OBJECT":
+            # A failed user asset deletion leaves its reference intact. Such a
+            # PENDING record is not permission to destroy a still-used original.
+            if db.scalar(select(ReportAsset.id).where(
+                    ReportAsset.cos_object_key == cleanup.cos_object_key).limit(1)) is not None:
+                return False
             cos.delete_object(cleanup.cos_object_key)
         elif cleanup.target_type == "PREFIX":
             if not re.fullmatch(r"users/[^/]+/ingestions/[^/]+/", cleanup.cos_object_key):

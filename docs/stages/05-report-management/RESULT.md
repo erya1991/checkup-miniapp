@@ -12,7 +12,7 @@
 
 ## 2. 实际修改文件
 
-本轮共 23 个实现/测试/运行说明/RESULT 文件：
+初次 Stage 05 实施共 23 个实现/测试/运行说明/RESULT 文件：
 
 - 后端新增：`backend/app/reports.py`、`backend/app/api/v1/reports.py`、`backend/app/cleanup_worker.py`。
 - 后端修改：`backend/app/models/entities.py`、`backend/app/main.py`、`backend/app/core/cos.py`。
@@ -22,7 +22,9 @@
 - 小程序修改：`miniapp/src/pages.json`、`miniapp/src/pages/index/index.vue`、`miniapp/src/pages/ingestion-tasks/index.vue`、`miniapp/src/pages/confirmation/index.vue`。
 - 文档：`README.md`、`backend/README.md`、`deploy/README.md`、本 `RESULT.md`。
 
-用户的 Stage 05 PLAN / ACCEPTANCE 原为未跟踪文档，保持未修改；工作期间 AGENTS.md 新增的 Stage 文档职责规则已读取并保留，它不是本轮 Codex 修改。未覆盖用户改动，未修改 0001～0004 migration。
+初次实施时用户的 Stage 05 PLAN / ACCEPTANCE 和 AGENTS.md 改动均保持未覆盖，未修改 0001～0004 migration。
+
+本次回归修复仅修改 7 个文件：`backend/app/cleanup_worker.py`、`backend/tests/test_stage05.py`、`backend/tests/verify_postgres_reports.py`、`miniapp/src/reports.ts`、`miniapp/src/pages/report-detail/index.vue`、`miniapp/tests/reports.test.mjs`、本 `RESULT.md`。未修改 PLAN / ACCEPTANCE、基线、README 或 migration。
 
 ## 3. Migration
 
@@ -45,7 +47,7 @@
 | POST | `/reports/{report_id}/migrate` | 目标 health_profile_id 和可选 duplicate_acknowledgement |
 | DELETE | `/reports/{report_id}` | 数据库完整硬删除提交后返回204，COS即时失败不改变删除成功 |
 
-报告排序为 examination_date DESC → examination_time DESC NULLS LAST → created_at DESC → id DESC。计数只读持久化 LabResult.abnormal，NULL/空/NORMAL 不计有异常标记。详情 sequence_no ASC，metric_name/result_text 为主展示，标准名称辅助，未关联项完整保留；没有医学重推断，也不展示内部来源/处理枚举。
+报告排序为 examination_date DESC → examination_time DESC NULLS LAST → created_at DESC → id DESC。计数只读持久化 LabResult.abnormal，NULL/空/NORMAL 不计有异常标记。详情 sequence_no ASC，metric_name/result_text 为主展示，单位优先 unit_normalized，NULL/空串时回退 unit_original，两者均缺失则不展示；仅选择显示值，不换算、不修改正式值或 OCR 快照。标准名称辅助，未关联项完整保留；没有医学重推断，也不展示内部来源/处理枚举。
 
 小程序三个真实 API 页面具备 loading/empty/error/retry；列表默认档案、onShow 重载、加载更多及请求版本防旧响应覆盖；原图按 page_no、多页、uni.previewImage 放大、单页签名/图片失败重试，短时 URL 只存在页面内。COS 失败不会阻断正式详情。
 
@@ -65,7 +67,7 @@ OCR 报告迁移前后自动比对 ConfirmationItem/OcrResultItem/OcrTask/Report
 
 目标为 `users/{user_id}/ingestions/{ingestion_id}/`，覆盖 original、ocr、manifest、retry/evidence 及 ingestion 范围孤儿对象。数据库 commit 后立即尝试 COS：成功 DONE；失败 PENDING，但接口仍204，正式医疗数据不恢复。删除后详情/原图/原 ingestion 均不存在，不能继续签发新的 URL。重复 DELETE 为安全404，不生成第二份清理记录。
 
-`python -m app.cleanup_worker` 为可执行独立消费者，与 API/OCR Worker 同 codebase。每10秒扫描 PENDING，处理记录持有 FOR UPDATE SKIP LOCKED 行锁；OBJECT 删除单对象，PREFIX 用 Marker 分页列举并逐个删除，循环复核 prefix 为空后才 DONE。网络/数据库失败继续重试，不增加新中间件或配置字段。COS SDK普通 INFO日志已抑制，cleanup日志只记标识与稳定错误码，不记录医疗全文/SQL绑定值/object prefix。
+`python -m app.cleanup_worker` 为可执行独立消费者，与 API/OCR Worker 同 codebase。每10秒扫描 PENDING，处理记录持有 FOR UPDATE SKIP LOCKED 行锁；OBJECT 先检查是否仍有任意 ReportAsset 引用同一 cos_object_key：有引用时不调用 COS、不删除 Asset，保留 PENDING；解除引用后才删除单对象。PREFIX 用 Marker 分页列举并逐个删除，循环复核 prefix 为空后才 DONE。网络/数据库失败继续重试，不增加新中间件或配置字段。COS SDK普通 INFO日志已抑制，cleanup日志只记标识与稳定错误码，不记录医疗全文/SQL绑定值/object prefix。
 
 COS 分页/失败/重试使用合成 SDK 替身（2105 个对象）验证；PostgreSQL cleanup 使用合成 COS 替身。**未对真实 COS 文件执行删除测试，也未把真实云存储清理或进程部署标为已验收。**
 
@@ -75,19 +77,21 @@ COS 分页/失败/重试使用合成 SDK 替身（2105 个对象）验证；Post
 
 | cwd | 命令 | 最终结果 |
 | --- | --- | --- |
-| backend | `.venv/Scripts/python.exe -m pytest -q` | PASS，63 passed，0 skipped；包括原有52项与新增11项 |
+| backend | `.venv/Scripts/python.exe -m pytest -q` | PASS，66 passed，0 skipped；原有52项完整保留，Stage05共14项（本次新增3项） |
 | backend | `.venv/Scripts/ruff.exe check . --no-cache` | PASS，All checks passed |
 | backend | `.venv/Scripts/alembic.exe heads` | `0005_report_management (head)` |
 | backend | `.venv/Scripts/python.exe tests/verify_postgres_reports.py` | PASS，真实PostgreSQL17，两座临时库均删除并查询核实不存在 |
 | backend | `.venv/Scripts/python.exe tests/verify_postgres_confirmation.py` | PASS，Stage04两座临时库最终删除 |
 | backend | `.venv/Scripts/python.exe tests/verify_postgres_queue.py` | PASS，Stage03队列在0005 head下验证，临时库finally删除 |
-| miniapp | `pnpm test` | PASS，20 tests，0 skipped；原有13项完整保留 |
+| miniapp | `pnpm test` | PASS，21 tests，0 skipped；原有13项完整保留，本次新增单位展示回归1项 |
 | miniapp | `pnpm typecheck` | PASS |
 | miniapp | `pnpm build:mp-weixin` | PASS，微信产物在dist/build/mp-weixin |
 | admin-web | `pnpm typecheck` | PASS |
 | admin-web | `pnpm build` | PASS |
 
-Stage05 PostgreSQL实际场景：历史 OBJECT回填；既有正式报告无需重建；部分迁移后真实DB错误 rollback；双独立session迁移vs迁移；迁移vs目标新commit的重复串行；cleanup登记失败和后段删除失败 rollback；迁移vs删除；并发重复DELETE仅一份PREFIX；正式域/确认/OCR/上传全链清空；PREFIX持久留存；COS失败不恢复数据；OBJECT/PREFIX消费者重试与重复处理。数据库名只由固定测试前缀和UUID生成，业务库不作为测试库。
+Stage05 PostgreSQL实际场景：历史 OBJECT回填；既有正式报告无需重建；部分迁移后真实DB错误 rollback；双独立session迁移vs迁移；迁移vs目标新commit的重复串行；cleanup登记失败和后段删除失败 rollback；迁移vs删除；并发重复DELETE仅一份PREFIX；正式域/确认/OCR/上传全链清空；PREFIX持久留存；COS失败不恢复数据；OBJECT/PREFIX消费者重试与重复处理；本次增加有 ReportAsset 引用时重复消费仍不调用 COS / 保留 PENDING，完整删除解除引用后 COS 失败保留 PENDING、重试成功 DONE、再次消费不重复删除。数据库名只由固定测试前缀和UUID生成，业务库不作为测试库。
+
+本次新增后端回归通过实际 API 构造“原图删除失败 → 保留 Asset / OBJECT PENDING”，分别覆盖未 commit 和已 commit 正式报告；重复消费不触发 COS 删除，原图预览仍可用，显式重试删除可完成。无引用 OBJECT 的 COS 失败、成功重试和重复消费均通过。小程序回归覆盖 normalized 优先、NULL/空串回退、两者缺失和存储值不变。
 
 ## 8. Stage 04 回归
 
@@ -102,11 +106,13 @@ Stage05 PostgreSQL实际场景：历史 OBJECT回填；既有正式报告无需�
 - 目标业务库未升级、cleanup进程未替负责人部署；需验收前按第11节启动。消费者未运行时不能宣称失败文件已最终清除。
 - COS失败后允许短时文件留存，PENDING重试成功才最终清理；这是冻结的一致性策略。已发出的300秒私有URL不能由产品API主动撤销，删除后不再签发新的URL。
 - 保留既有非阻塞警告：FastAPI/Starlette TestClient弃用提示、Node模块类型提示、Admin产物较大提示。未为消除警告扩大依赖/重构范围。
-- 整仓 `git diff --check` 发现用户新增AGENTS.md中的空白行尾空格；未替用户修改。Stage05所改文件单独diff检查通过。
+- 本次已修复：Stage02原图删除失败后遗留的 OBJECT/PENDING 曾可能误删仍被 ReportAsset 引用的原图；现以全局引用检查保护，未 commit / 已 commit 场景及 PostgreSQL 17 回归通过。有引用时保持 PENDING 属于保护行为，不能据此宣称文件已删除。
+- 本次已修复：正式详情此前优先显示 unit_original；现优先 unit_normalized，缺失时回退原单位，六组展示回归通过。
+- 本次整仓 `git diff --check` 通过。
 
 ## 10. Git / Stage 06 边界
 
-未commit、未push、未切换分支。Stage05实现、测试和文档保持待提交；用户AGENTS.md改动及未跟踪PLAN/ACCEPTANCE保留。本轮不实现我的指标、历史、趋势、关注、单位趋势分组、StandardMetric/MetricAlias/OCR后台。
+本次修复开始时 main 工作区干净；结束时仅第2节列出的7个文件为未提交修改。未commit、未push、未切换分支。本轮不实现我的指标、历史、趋势、关注、单位趋势分组、StandardMetric/MetricAlias/OCR后台。
 
 下一阶段只在Stage05负责人实机验收收口后另行授权；Stage06应直接查询LabResult，未关联标准指标不得纳入标准聚合，迁移/删除已自然更新其数据基础。
 

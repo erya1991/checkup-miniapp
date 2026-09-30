@@ -2,12 +2,14 @@
 from types import SimpleNamespace
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import event, func, select
-from test_stage02 import headers, ingestion, login, profile
+from test_stage02 import asset, headers, ingestion, login, profile
 from test_stage04 import add, new_report, old_ocr, report_info, workspace
 from test_stage04 import client as stage04_client
 
 from app import cleanup_worker
+from app.api.v1 import business
 from app.api.v1 import reports as report_api
 from app.core import cos
 from app.models import (
@@ -322,3 +324,74 @@ def test_ocr_report_migration_preserves_every_source_snapshot(client):
         assert moved.json()[field] == detail_before[field]
     with factory() as db:
         assert db.get(OcrTask, tid).ingestion_id == row['id']
+
+
+@pytest.mark.parametrize('committed', [False, True])
+def test_failed_asset_delete_cleanup_preserves_referenced_original(client, monkeypatch, committed):
+    api, factory = client
+    owner = login(api, 'referenced-original')
+    profile_id = profile(api, owner)['id']
+    draft = ingestion(api, owner, profile_id)
+    key, page = asset(api, owner, draft['id'])
+    path = f"/api/v1/ingestions/{draft['id']}"
+
+    def fail_delete(_key):
+        raise HTTPException(502, 'COS_DELETE_FAILED')
+
+    monkeypatch.setattr(business, 'delete_object', fail_delete)
+    assert api.delete(path + f"/assets/{page['id']}", headers=headers(owner)).status_code == 502
+    if committed:
+        assert api.post(path + '/manual', headers=headers(owner)).status_code == 200
+        report_info(api, owner, path)
+        add(api, owner, path)
+        response = api.post(path + '/commit', headers=headers(owner), json={})
+        assert response.status_code == 200
+        report_id = response.json()['report_id']
+    deletes = []
+    monkeypatch.setattr(cos, 'delete_object', deletes.append)
+    cleanup_worker.run_once(factory)
+    cleanup_worker.run_once(factory)
+    assert deletes == []
+    with factory() as db:
+        assert db.get(ReportAsset, page['id']).cos_object_key == key
+        cleanup = db.scalar(select(FileCleanup).where(FileCleanup.cos_object_key == key))
+        assert cleanup.target_type == 'OBJECT' and cleanup.status == 'PENDING'
+    assert api.get(path + f"/assets/{page['id']}/preview", headers=headers(owner)).status_code == 200
+    if committed:
+        assert api.get(f'/api/v1/reports/{report_id}/assets', headers=headers(owner)).json()[0]['id'] == page['id']
+    else:
+        # Only the explicit user retry removes the still-referenced asset.
+        user_deletes = []
+        monkeypatch.setattr(business, 'delete_object', user_deletes.append)
+        assert api.delete(path + f"/assets/{page['id']}", headers=headers(owner)).status_code == 200
+        assert user_deletes == [key]
+        cleanup_worker.run_once(factory)
+        assert deletes == []
+        with factory() as db:
+            assert db.get(ReportAsset, page['id']) is None
+            assert db.scalar(select(FileCleanup).where(FileCleanup.cos_object_key == key)).status == 'DONE'
+
+
+def test_unreferenced_object_cleanup_failure_retry_and_idempotence(client, monkeypatch):
+    _api, factory = client
+    with factory() as db:
+        row = FileCleanup(cos_object_key='synthetic/unreferenced-original', target_type='OBJECT')
+        db.add(row)
+        db.commit()
+        cleanup_id = row.id
+    deletes = []
+
+    def fail_delete(key):
+        deletes.append(key)
+        raise RuntimeError('synthetic unavailable')
+
+    monkeypatch.setattr(cos, 'delete_object', fail_delete)
+    cleanup_worker.run_once(factory)
+    with factory() as db:
+        assert db.get(FileCleanup, cleanup_id).status == 'PENDING'
+    monkeypatch.setattr(cos, 'delete_object', deletes.append)
+    cleanup_worker.run_once(factory)
+    cleanup_worker.run_once(factory)
+    assert deletes == ['synthetic/unreferenced-original'] * 2
+    with factory() as db:
+        assert db.get(FileCleanup, cleanup_id).status == 'DONE'

@@ -273,6 +273,51 @@ def exercise(engine, user_id, old_iid):
     finally:
         cos.delete_prefix, cos.delete_object = original_prefix, original_object
     print('durable PREFIX/OBJECT consumer, COS failure retry and repeat safe: PASS')
+    verify_referenced_object(factory, user_id, source)
+
+
+
+def verify_referenced_object(factory, user_id, profile_id):
+    ingestion_id = pending(factory, user_id, profile_id, report_no='OBJECT-REFERENCE-GUARD')
+    report_id = commit(factory, user_id, ingestion_id)
+    with factory() as db:
+        page = db.scalar(select(ReportAsset).where(ReportAsset.ingestion_id == ingestion_id))
+        asset_id, key = page.id, page.cos_object_key
+        row = FileCleanup(cos_object_key=key, target_type='OBJECT', status='PENDING')
+        db.add(row)
+        db.commit()
+        object_id = row.id
+    original_prefix, original_object = cos.delete_prefix, cos.delete_object
+    deleted = []
+    try:
+        cos.delete_object = lambda target: deleted.append(('OBJECT', target))
+        cos.delete_prefix = lambda target: deleted.append(('PREFIX', target))
+        cleanup_worker.run_once(factory)
+        cleanup_worker.run_once(factory)
+        assert not deleted
+        with factory() as db:
+            assert db.get(FileCleanup, object_id).status == 'PENDING'
+            assert db.get(ReportAsset, asset_id).cos_object_key == key
+            assert reports.detail(db, db.get(User, user_id), db.get(LabReport, report_id))['item_count'] == 1
+            prefix_id = reports.delete_report(db, db.get(User, user_id), report_id)
+            db.commit()
+        # The reference is gone: OBJECT is now eligible, but a COS failure stays PENDING.
+        cos.delete_object = lambda target: (_ for _ in ()).throw(RuntimeError('synthetic unavailable'))
+        cleanup_worker.run_once(factory)
+        with factory() as db:
+            assert db.get(ReportAsset, asset_id) is None
+            assert db.get(FileCleanup, object_id).status == 'PENDING'
+            assert db.get(FileCleanup, prefix_id).status == 'DONE'
+        cos.delete_object = lambda target: deleted.append(('OBJECT', target))
+        cleanup_worker.run_once(factory)
+        cleanup_worker.run_once(factory)
+        assert sum(kind == 'OBJECT' for kind, target in deleted) == 1
+        assert ('OBJECT', key) in deleted
+        with factory() as db:
+            assert db.get(FileCleanup, object_id).status == 'DONE'
+    finally:
+        cos.delete_prefix, cos.delete_object = original_prefix, original_object
+    print('referenced OBJECT skipped/PENDING; after full delete retry succeeds once: PASS')
 
 
 def main():

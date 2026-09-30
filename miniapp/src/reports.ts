@@ -16,6 +16,9 @@ export function reportsPath(profileId: string, page = 1) {
   return `/reports?health_profile_id=${encodeURIComponent(profileId)}&page=${page}&page_size=20`
 }
 export function reportDestination(id: string) { return `/pages/report-detail/index?id=${encodeURIComponent(id)}` }
+export function displayUnit(result: Pick<ReportResult, 'unit_normalized' | 'unit_original'>): string {
+  return result.unit_normalized || result.unit_original || ''
+}
 export function abnormalLabel(value: string | null): string {
   return value === 'HIGH' ? '↑' : value === 'LOW' ? '↓' : !value || value === 'NORMAL' ? '' : '异常标记'
 }

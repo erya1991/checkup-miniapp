@@ -51,3 +51,20 @@ test('failed migration propagates; deletion returns to formal list', async () =>
   await assert.rejects(migrateWithConfirmation(async () => { throw Error('offline') }, 'target', async () => true), /offline/)
   assert.equal(deletedReportDestination, '/pages/reports/index')
 })
+
+test('formal details prefer normalized unit, fall back to original, and preserve stored values', async () => {
+  const { displayUnit } = await import('../src/reports.ts')
+  const cases = [
+    [{ unit_normalized: 'μg/mL', unit_original: 'ug/ml' }, 'μg/mL'],
+    [{ unit_normalized: 'U/L', unit_original: null }, 'U/L'],
+    [{ unit_normalized: null, unit_original: '原始单位' }, '原始单位'],
+    [{ unit_normalized: '', unit_original: '原始单位' }, '原始单位'],
+    [{ unit_normalized: null, unit_original: null }, ''],
+    [{ unit_normalized: '', unit_original: '' }, ''],
+  ]
+  for (const [values, expected] of cases) {
+    const stored = { ...values }
+    assert.equal(displayUnit(values), expected)
+    assert.deepEqual(values, stored)
+  }
+})

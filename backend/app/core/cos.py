@@ -47,3 +47,28 @@ def delete_object(key: str) -> None:
 def preview_url(key: str) -> str:
     return client().get_presigned_download_url(Bucket=get_settings().cos_bucket,
                                                 Key=key, Expired=300)
+
+
+def delete_prefix(prefix: str) -> None:
+    """List with markers, delete all pages, and verify the prefix is empty."""
+    sdk = client()
+    bucket = get_settings().cos_bucket
+    while True:
+        marker = ""
+        found = False
+        while True:
+            page = sdk.list_objects(Bucket=bucket, Prefix=prefix, Marker=marker, MaxKeys=1000)
+            for obj in page.get("Contents", []):
+                key = obj["Key"]
+                if not key.startswith(prefix):
+                    raise ValueError("COS_PREFIX_MISMATCH")
+                sdk.delete_object(Bucket=bucket, Key=key)
+                found = True
+            if str(page.get("IsTruncated", "false")).lower() != "true":
+                break
+            next_marker = page.get("NextMarker")
+            if not next_marker or next_marker == marker:
+                raise ValueError("COS_PAGINATION_INVALID")
+            marker = next_marker
+        if not found:
+            return

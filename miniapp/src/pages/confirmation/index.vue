@@ -178,6 +178,7 @@ async function submit() {
   catch (e) { error.value = message(e) }
   finally { busy.value = false }
 }
+function viewReport() { if (success.value) uni.navigateTo({ url: '/pages/report-detail/index?id=' + encodeURIComponent(success.value.report_id) }) }
 function done() { uni.reLaunch({ url: '/pages/index/index' }) }
 </script>
 
@@ -186,6 +187,7 @@ function done() { uni.reLaunch({ url: '/pages/index/index' }) }
     <view v-if="success" class="card">
       <text class="title">报告保存成功</text>
       <text>{{ success.item_count }} 项检验结果已保存</text>
+      <button @click="viewReport">查看检验报告</button>
       <button @click="done">完成</button>
     </view>
     <text v-else-if="loading">正在加载确认进度...</text>

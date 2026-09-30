@@ -4,6 +4,8 @@ import { onShow } from '@dcloudio/uni-app'
 import { ensureLogin, request, type Ingestion, type Profile } from '../../api'
 import { ingestionTasksPath, taskDestination, taskStatusLabels } from '../../ingestion-tasks'
 
+import { unfinished } from '../../reports'
+
 const profile = ref<Profile | null>(null)
 const tasks = ref<Ingestion[]>([])
 const loading = ref(true)
@@ -24,7 +26,7 @@ async function load() {
     const selectedTasks = await request<Ingestion[]>(ingestionTasksPath(me.default_health_profile_id))
     if (version === loadVersion) {
       profile.value = selectedProfile
-      tasks.value = selectedTasks
+      tasks.value = selectedTasks.filter(t => unfinished(t.status))
     }
   } catch (e) {
     if (version === loadVersion) error.value = e instanceof Error ? e.message : '任务加载失败'

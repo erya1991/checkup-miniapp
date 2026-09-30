@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from sqlalchemy import (
     JSON,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -93,6 +94,9 @@ class ReportAsset(Base):
 
 class FileCleanup(Base):
     __tablename__ = "file_cleanups"
+    __table_args__ = (CheckConstraint(
+        "target_type IN ('OBJECT', 'PREFIX')", name="ck_file_cleanup_target_type"),)
+    target_type: Mapped[str] = mapped_column(String(16), default="OBJECT", server_default="OBJECT")
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     cos_object_key: Mapped[str] = mapped_column(String(256), unique=True)
     status: Mapped[str] = mapped_column(String(16), default="PENDING")

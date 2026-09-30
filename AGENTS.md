@@ -95,6 +95,29 @@ V1.0 默认不引入：
 9. `RESULT.md` 必须记录：实际完成项、测试/验收结果、设计偏差、已知问题、下一阶段注意事项。
 10. 如引入新的长期工程约束，更新对应 baseline 或 decision 文档，而不是只写在聊天或 commit message 中。
 
+### 6.1 Stage 文档职责与 Codex 执行原则
+
+- `PLAN.md`：当前 Stage 的详细设计与实施边界。
+- `ACCEPTANCE.md`：当前 Stage 的逐项验收与 PASS/FAIL 基线。
+- `RESULT.md`：当前 Stage 的实际实施结果、测试/验收结果、设计偏差、已知问题和最终状态。
+- Codex 实施 Prompt：读取 + 执行 + 测试 + 汇报，只负责执行编排。
+
+Codex 必须遵守：
+
+1. Prompt 保持精简，不大篇幅重复 PLAN / ACCEPTANCE 已冻结的详细业务规则；要求按规定顺序读取文档、检查真实代码和 Git status，完成实施、测试、RESULT 更新及事实汇报。
+2. 正式实施以当前 Stage 的 PLAN / ACCEPTANCE 为主要实施基线；Prompt 与两者冲突时，以 PLAN / ACCEPTANCE 为准，不降低验收条件。
+3. 真实代码与冻结文档冲突时，先分析、记录并报告冲突和实际设计偏差，不得擅自重新定义产品规则或扩大 Stage 范围。
+4. 正式编码前必须完成边界确认、PLAN 冻结和 ACCEPTANCE 冻结；人工验收要求不能由自动测试替代，未满足 ACCEPTANCE 的 P0 条件不得标记 PASS。
+
+新 Stage 固定流程：
+
+```text
+检查上一 Stage RESULT → 检查当前真实仓库 → 讨论并确认新 Stage 边界
+→ 生成并冻结 PLAN.md → 生成并冻结 ACCEPTANCE.md → 生成精简 Codex 实施 Prompt
+→ Codex 实施 → 自动测试 / 集成测试 → 项目负责人人工验收
+→ 更新 RESULT.md → Stage PASS 后进入下一阶段
+```
+
 ## 7. 数据、安全与隐私规则
 
 - 不向 Git 提交任何真实用户医疗报告、真实 OCR 医疗数据或真实密钥。

@@ -31,7 +31,7 @@ checkup-miniapp/
 
 Stage 00～04 已验收通过。**Stage 04 = PASS**，已完成人工确认工作区、报告信息确认、AUTO/REVIEW 处理、StandardMetric 选择、手工补项/纯手工兜底、疑似重复提示，以及事务安全、幂等的正式 `LabReport / LabResult` 生成。项目负责人已在真实微信小程序中完成 W01～W04 人工验收，逐项证据见 [Stage 04 RESULT](docs/stages/04-confirmation-report/RESULT.md)。
 
-OCR 成功只到 `PENDING_CONFIRMATION`，必须经过用户人工确认和最终 commit；只有 commit 后的 `LabReport / LabResult` 才是正式健康数据。**Stage 05 尚未开始实施**，正式报告列表、详情、删除和已保存报告档案迁移尚未实现；Stage 06/07 未进入。
+OCR 成功只到 `PENDING_CONFIRMATION`，必须经过用户人工确认和最终 commit；只有 commit 后的 `LabReport / LabResult` 才是正式健康数据。**Stage 05 正式报告管理已实现，工程自动验证通过，待负责人真实微信 V01～V06 验收，当前不得判定 PASS**。正式列表/详情仅查询 LabReport / LabResult；支持原图、整份档案迁移、完整硬删除和持久化 COS prefix 清理。Stage 06/07 未进入，证据见 [Stage 05 RESULT](docs/stages/05-report-management/RESULT.md)。
 
 ## 本地运行
 
@@ -64,7 +64,7 @@ py -3.12 -m venv .venv-paddle
 
 自动验证：在 `backend/` 执行 `.venv/Scripts/python.exe -m pytest -q`、`.venv/Scripts/ruff.exe check . --no-cache`、`.venv/Scripts/python.exe tests/verify_postgres_queue.py`、`.venv/Scripts/python.exe tests/verify_postgres_confirmation.py`；在 `miniapp/` 执行 `pnpm test`、`pnpm typecheck`、`pnpm build:mp-weixin`；在 `admin-web/` 执行 `pnpm typecheck`、`pnpm build`。PostgreSQL 脚本创建唯一命名临时库并自行删除，要求 PostgreSQL 17 及创建临时库权限。PoC Frozen Regression 继续在独立 PoC 仓库执行。真实医疗报告、OCR 输出和密钥不得提交；本仓库测试只使用合成或经许可的数据。
 
-Stage 04 migration 为 `0004_confirmation_report`，从 `0003_ocr` 增量升级，不改写前三个版本。迁移导入 `backend/migrations/data/standard_metrics_v1.json` 的 12 条产品侧最小标准指标；启动、Worker 和确认 API 不从 OCR 指标库反写主数据。旧待确认任务首次访问 `/ingestions/{id}/confirmation` 幂等初始化，无需重新识别。纯手工录入仍必须先上传原图。确认更新支持 PATCH/PUT，小程序使用 PUT。commit 成功仅显示结果数量及完成反馈。
+Stage 04 migration 为 `0004_confirmation_report`，从 `0003_ocr` 增量升级，不改写前三个版本。迁移导入 `backend/migrations/data/standard_metrics_v1.json` 的 12 条产品侧最小标准指标；启动、Worker 和确认 API 不从 OCR 指标库反写主数据。旧待确认任务首次访问 `/ingestions/{id}/confirmation` 幂等初始化，无需重新识别。纯手工录入仍必须先上传原图。确认更新支持 PATCH/PUT，小程序使用 PUT。commit 成功显示结果数量、完成反馈，并使用返回的 report_id 进入正式报告详情。
 
 验收证据：Backend 52 passed、Ruff PASS；PostgreSQL 17 迁移/并发初始化/事务回滚/并发 commit/唯一约束 PASS，原有 59 项任务初始化幂等且全部机器快照未变；Miniapp 13 tests/typecheck/build PASS；Admin typecheck/build PASS。以上为已执行的工程验证；真实微信 W01～W04 已由项目负责人手动验收，全部 PASS。本次仅更新文档，未重复执行上述测试链路。
 
@@ -92,3 +92,16 @@ Stage 04 migration 为 `0004_confirmation_report`，从 `0003_ocr` 增量升级�
 ## 重要说明
 
 OCR PoC / Regression 继续保留在独立 `checkup-ocr-poc` 仓库。正式产品只接入已验证的 Pipeline 能力。即使识别结果含 `FINAL_REVIEW`，OCR task 仍可成功；最终状态为“识别完成，待确认”。Stage 04 只编辑 `ConfirmationItem`，不覆盖机器快照；全部 REVIEW resolved 后，由用户 commit 生成正式数据。
+
+Stage 05 运行补充（在 `backend/`）：
+
+```powershell
+# 正常升级目标环境；不属于测试数据库操作
+.venv/Scripts/alembic.exe upgrade head
+# 重启 API，并另开终端持续运行清理消费者
+.venv/Scripts/python.exe -m app.cleanup_worker
+# 独立临时 PostgreSQL 17 验证
+.venv/Scripts/python.exe tests/verify_postgres_reports.py
+```
+
+`0005_report_management` 只增加 `FileCleanup.target_type`，历史记录默认为 OBJECT。正式报告删除先在同一事务登记 PREFIX cleanup 并硬删除完整来源链；事务提交后尝试即时 COS 删除，失败仍返回 204 并保留 PENDING。cleanup worker 每 10 秒重试 PENDING，按行锁跳过其它消费者正在处理的记录，支持 OBJECT 与分页 PREFIX，只有成功才置 DONE。运行账户需具备 COS 列举对象、删除对象权限。消费者必须与 API/OCR Worker 一起持续运行；没有引入新中间件。本轮验证只操作临时测试库与合成 COS 替身，未迁移开发人员业务数据库、未删除真实 COS 文件，真实微信验收前须执行上述正常 migration 并启动/重启进程。

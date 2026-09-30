@@ -144,8 +144,19 @@ Commit 示例：
 - 实施后执行当前 ACCEPTANCE 中要求的命令；
 - 将实际结果写入 RESULT.md。
 
+### Stage 文档分工
+
+- `PLAN.md` = 详细设计与实施边界。
+- `ACCEPTANCE.md` = 逐项验收与 PASS/FAIL 基线。
+- `RESULT.md` = 实施事实，包括实际完成项、测试/验收结果、设计偏差和最终状态。
+- Codex Prompt = 读取 + 执行 + 测试 + 汇报；保持精简，不重复 PLAN / ACCEPTANCE 中已冻结的大段需求。
+
+每个 Stage 正式编码前必须完成：`边界确认 → PLAN 冻结 → ACCEPTANCE 冻结`。正式实施依据当前 PLAN / ACCEPTANCE，Prompt 冲突时以两者为准。发现文档与真实代码冲突，先分析、记录并报告；实际设计偏差写入 RESULT，不自行重新定义规则或扩大范围。完整 Stage 流程见 AGENTS.md 第 6.1 节。
+
 ## 13. 阶段完成定义
 
 页面可打开并不等于完成。
 
 完成 = 实现 + 权限 + 异常路径 + 测试 + 文档 + 当前验收全部通过。
+
+ACCEPTANCE 中要求的项目负责人人工验收不能由自动测试、接口调用或构建成功替代。P0 条件未全部满足时不得标记 PASS；RESULT 必须如实记录已执行的验证、待验项和当前状态。

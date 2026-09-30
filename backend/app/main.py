@@ -11,6 +11,7 @@ from app.api.v1.business import router as business_router
 from app.api.v1.confirmation import router as confirmation_router
 from app.api.v1.health import router as health_router
 from app.api.v1.ocr import router as ocr_router
+from app.api.v1.reports import router as reports_router
 from app.confirmation import ConfirmationError
 from app.core.config import get_settings
 from app.core.logging import configure_logging
@@ -19,6 +20,7 @@ settings = get_settings()
 configure_logging(settings.log_level)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("qcloud_cos").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Checkup API")
@@ -26,6 +28,7 @@ app.include_router(health_router, prefix="/api/v1")
 app.include_router(business_router, prefix="/api/v1")
 app.include_router(ocr_router, prefix="/api/v1")
 app.include_router(confirmation_router, prefix="/api/v1")
+app.include_router(reports_router, prefix="/api/v1")
 
 
 @app.exception_handler(ConfirmationError)

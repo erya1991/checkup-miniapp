@@ -5,6 +5,7 @@ from app.models.entities import (
                                  HealthProfile,
                                  LabReport,
                                  LabResult,
+                                 MetricFavorite,
                                  OcrResultItem,
                                  OcrTask,
                                  ReportAsset,
@@ -14,6 +15,18 @@ from app.models.entities import (
                                  User,
 )
 
-__all__ = ["ConfirmationItem", "FileCleanup", "HealthProfile", "LabReport", "LabResult",
-           "OcrResultItem", "OcrTask", "ReportAsset", "ReportIngestion", "StandardMetric",
-           "UploadAuthorization", "User"]
+__all__ = [
+                                 "ConfirmationItem",
+                                 "FileCleanup",
+                                 "HealthProfile",
+                                 "LabReport",
+                                 "LabResult",
+                                 "MetricFavorite",
+                                 "OcrResultItem",
+                                 "OcrTask",
+                                 "ReportAsset",
+                                 "ReportIngestion",
+                                 "StandardMetric",
+                                 "UploadAuthorization",
+                                 "User",
+]

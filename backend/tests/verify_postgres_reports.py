@@ -348,10 +348,10 @@ def main():
                 with engine.begin() as conn:
                     conn.execute(tables.tables['file_cleanups'].insert(),
                                  {'id': str(uuid4()), 'cos_object_key': 'legacy/object', 'status': 'PENDING', 'created_at': now()})
-                command.upgrade(Config('alembic.ini'), 'head')
+                command.upgrade(Config('alembic.ini'), '0005_report_management')
                 exercise(engine, uid, iid)
             else:
-                command.upgrade(Config('alembic.ini'), 'head')
+                command.upgrade(Config('alembic.ini'), '0005_report_management')
             with engine.connect() as conn:
                 assert conn.scalar(text('SELECT version_num FROM alembic_version')) == '0005_report_management'
             assert any(c['name'] == 'ck_file_cleanup_target_type' for c in inspect(engine).get_check_constraints('file_cleanups'))

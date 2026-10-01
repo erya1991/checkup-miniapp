@@ -8,6 +8,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -220,6 +221,8 @@ class LabReport(Base):
 
 class LabResult(ResultFields, Base):
     __tablename__ = "lab_results"
+    __table_args__ = (Index("ix_lab_results_profile_metric_date",
+                            "health_profile_id", "standard_metric_id", "examination_date"),)
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     report_id: Mapped[str] = mapped_column(ForeignKey("lab_reports.id"), index=True)
     health_profile_id: Mapped[str] = mapped_column(ForeignKey("health_profiles.id"), index=True)
@@ -228,4 +231,14 @@ class LabResult(ResultFields, Base):
     data_source: Mapped[str] = mapped_column(String(16))
     examination_date: Mapped[date] = mapped_column(Date, index=True)
     examination_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class MetricFavorite(Base):
+    __tablename__ = "metric_favorites"
+    __table_args__ = (UniqueConstraint(
+        "health_profile_id", "standard_metric_id", name="uq_metric_favorites_profile_metric"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    health_profile_id: Mapped[str] = mapped_column(ForeignKey("health_profiles.id"))
+    standard_metric_id: Mapped[str] = mapped_column(ForeignKey("standard_metrics.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)

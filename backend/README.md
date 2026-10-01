@@ -1,4 +1,4 @@
-# Backend（Stage 05 = PASS）
+# Backend（Stage 05 = PASS；Stage 06 待人工验收）
 
 提供健康检查、微信 code 登录、健康档案、COS 原图资产、OCR 任务/持久化队列/独立 Worker，以及 Stage 04 确认和 commit。`0003_ocr` 增加不可变机器快照；`0004_confirmation_report` 增加报告确认字段及 StandardMetric / ConfirmationItem / LabReport / LabResult。识别成功只到 `PENDING_CONFIRMATION`；用户处理全部 REVIEW 并显式 commit 后才生成正式数据。Stage 04 已 PASS。Stage 05 正式报告管理已通过最终自动回归，负责人已确认真实微信 V01～V06 全部 PASS，最终 Stage 05 = PASS（2026-10-01），见 [Stage 05 RESULT](../docs/stages/05-report-management/RESULT.md)。
 
@@ -59,4 +59,29 @@ seed v1 在 migration 中一次性导入，未知 code 不自动建主数据；�
 
 另开终端持续执行 `.venv/Scripts/python.exe -m app.cleanup_worker`。这与 OCR Worker 为不同进程，不修改 OCR 算法。清理消费者每 10 秒扫描 PENDING，以 `FOR UPDATE SKIP LOCKED` 避免重复消费者互相阻塞；OBJECT 删除单对象，PREFIX 按 COS Marker 分页列出并逐个删除，重新检查前缀为空才 DONE。对象已不存在/前缀为空可安全重复执行。网络/数据库临时失败后继续重试，不输出 SQL 绑定值、医疗全文、对象 prefix 或密钥。配置沿用现有 DATABASE_URL/COS_*，需 COS 列举/删除权限。API 在删除事务完成后也即时尝试一次清理；失败保持 PENDING，正式报告不恢复，204 不变。重复 DELETE 已不存在的报告返回 404，不重新创建 cleanup。
 
-Stage 04 专项脚本固定执行到 `0004_confirmation_report`，保留全部原有断言；Stage 05 的 `tests/verify_postgres_reports.py` 独立验证 0004 → 0005 及空库 → head，在升级前建立真实 Stage 04 合成正式报告，核对升级后直接查询、事务回滚、迁移/删除/目标 commit 并发、完整删除与 cleanup 重试。两座 UUID 临时库最终删除并验证不存在，COS 使用合成替身。现有 `tests/verify_postgres_queue.py` 同时验证当前 head 下的队列行为。所有样本为合成数据。
+Stage 04 专项脚本固定执行到 `0004_confirmation_report`，保留全部原有断言；Stage 05 的 `tests/verify_postgres_reports.py` 独立验证 0004 → 0005 及空库 → 0005，在升级前建立真实 Stage 04 合成正式报告，核对升级后直接查询、事务回滚、迁移/删除/目标 commit 并发、完整删除与 cleanup 重试。两座 UUID 临时库最终删除并验证不存在，COS 使用合成替身。现有 `tests/verify_postgres_queue.py` 同时验证当前 head 下的队列行为。所有样本为合成数据。
+
+
+## Stage 06 profile metrics
+
+新增 migration `0006_metric_trend`，前置0005；只新建四字段MetricFavorite及profile+metric+date查询索引，不改写正式数据。
+
+| 方法 | 路径（前缀 /api/v1） | 行为 |
+| --- | --- | --- |
+| GET | `/profile-metrics?health_profile_id=&page=&page_size=` | 已正式出现的标准指标，关注优先，默认20最大100 |
+| GET | `/profile-metrics/{id}?health_profile_id=` | latest、history_count、趋势能力、关注状态 |
+| GET | `/profile-metrics/{id}/history?health_profile_id=&page=&page_size=` | 全部正式历史，默认50最大100 |
+| GET | `/profile-metrics/{id}/trend?health_profile_id=` | 确定数值的单位分组序列，最近可绘制序列优先 |
+| PUT / DELETE | `/favorites/{id}?health_profile_id=` | 幂等关注/取消，归属当前档案 |
+
+所有接口校验本人ACTIVE档案，不从临时域补数据。未关联StandardMetric结果不聚合；停用主数据的既往历史仍可见。latest/history以正式检验日期/时间及冻结稳定规则排序，result_text主展示；trend只有非空numeric且comparator为NULL/空/=，不解析文本、不换算单位、不重算abnormal。原图入口复用正式报告API。
+
+正常验收/部署环境需 `alembic upgrade head` 并重启API。本轮仅验证临时库，未升级业务库。新增专项命令（backend目录）：
+
+```powershell
+.venv/Scripts/python.exe tests/verify_postgres_metrics.py
+```
+
+真实PostgreSQL17，两座临时库验证增量/空库升级、并发UNIQUE、六类API权限、旧正式快照保持和迁移删除自然变化；finally删除并核实无残留。新增表/索引与ORM一致，但全库存在已验证的Stage03历史索引差异：migration的ix_ocr_tasks_queue(status,next_attempt_at)与ORM的ix_ocr_tasks_status(status)不一致；不能将全库alembic check记为PASS。本轮验证其升级前后保持相同，未修改OCR或既有migration。
+
+工程测试结果及负责人真实微信T01～T09清单见 [Stage 06 RESULT](../docs/stages/06-metric-trend/RESULT.md)。Stage 06最终仍为FAIL（待人工验收），Stage 07未实施。

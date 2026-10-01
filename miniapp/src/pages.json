@@ -59,6 +59,18 @@
         "navigationBarTitleText": "原始报告"
       },
       "path": "pages/report-assets/index"
+    },
+    {
+      "path": "pages/profile-metrics/index",
+      "style": {
+        "navigationBarTitleText": "我的指标"
+      }
+    },
+    {
+      "path": "pages/metric-detail/index",
+      "style": {
+        "navigationBarTitleText": "指标详情与趋势"
+      }
     }
   ],
   "globalStyle": {

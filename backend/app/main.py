@@ -11,6 +11,7 @@ from app.api.v1.business import router as business_router
 from app.api.v1.confirmation import router as confirmation_router
 from app.api.v1.health import router as health_router
 from app.api.v1.ocr import router as ocr_router
+from app.api.v1.profile_metrics import router as profile_metrics_router
 from app.api.v1.reports import router as reports_router
 from app.confirmation import ConfirmationError
 from app.core.config import get_settings
@@ -29,6 +30,7 @@ app.include_router(business_router, prefix="/api/v1")
 app.include_router(ocr_router, prefix="/api/v1")
 app.include_router(confirmation_router, prefix="/api/v1")
 app.include_router(reports_router, prefix="/api/v1")
+app.include_router(profile_metrics_router, prefix="/api/v1")
 
 
 @app.exception_handler(ConfirmationError)

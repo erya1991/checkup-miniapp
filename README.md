@@ -31,7 +31,7 @@ checkup-miniapp/
 
 Stage 00～05 已验收通过。**Stage 04 = PASS**，已完成人工确认工作区、报告信息确认、AUTO/REVIEW 处理、StandardMetric 选择、手工补项/纯手工兜底、疑似重复提示，以及事务安全、幂等的正式 `LabReport / LabResult` 生成。项目负责人已在真实微信小程序中完成 W01～W04 人工验收，逐项证据见 [Stage 04 RESULT](docs/stages/04-confirmation-report/RESULT.md)。
 
-OCR 成功只到 `PENDING_CONFIRMATION`，必须经过用户人工确认和最终 commit；只有 commit 后的 `LabReport / LabResult` 才是正式健康数据。**Stage 05 = PASS（2026-10-01）**，正式报告管理已实现并通过最终自动回归，负责人已确认真实微信 V01～V06 全部 PASS。正式列表/详情仅查询 LabReport / LabResult；支持原图、整份档案迁移、完整硬删除和持久化 COS prefix 清理。Stage 06/07 未进入，证据见 [Stage 05 RESULT](docs/stages/05-report-management/RESULT.md)。
+OCR 成功只到 `PENDING_CONFIRMATION`，必须经过用户人工确认和最终 commit；只有 commit 后的 `LabReport / LabResult` 才是正式健康数据。**Stage 05 = PASS（2026-10-01）**，正式报告管理已实现并通过最终自动回归，负责人已确认真实微信 V01～V06 全部 PASS。正式列表/详情仅查询 LabReport / LabResult；支持原图、整份档案迁移、完整硬删除和持久化 COS prefix 清理。Stage 06 已进入实施（最终待人工验收），Stage 07 未进入，Stage 05 证据见 [Stage 05 RESULT](docs/stages/05-report-management/RESULT.md)。
 
 ## 本地运行
 
@@ -105,3 +105,16 @@ Stage 05 运行补充（在 `backend/`）：
 ```
 
 `0005_report_management` 只增加 `FileCleanup.target_type`，历史记录默认为 OBJECT。正式报告删除先在同一事务登记 PREFIX cleanup 并硬删除完整来源链；事务提交后尝试即时 COS 删除，失败仍返回 204 并保留 PENDING。cleanup worker 每 10 秒重试 PENDING，按行锁跳过其它消费者正在处理的记录，支持 OBJECT 与分页 PREFIX，只有成功才置 DONE。运行账户需具备 COS 列举对象、删除对象权限。消费者必须与 API/OCR Worker 一起持续运行；没有引入新中间件。自动验证只操作临时测试库与合成 COS 替身，Codex未迁移开发人员业务数据库、未删除真实 COS 文件；负责人真实微信 V01～V06 已 PASS，未人为制造真实 COS 故障。正常目标环境仍须执行上述 migration 并启动/重启进程，生产部署与消费者持续运行不由自动验证代验。
+
+
+## Stage 06 我的指标 / 历史与趋势
+
+Stage 06 工程实现与要求的自动验证已通过，**最终状态仍为 FAIL（待负责人真实微信 T01～T09）**，见 [Stage 06 RESULT](docs/stages/06-metric-trend/RESULT.md)。
+
+我的指标只聚合当前本人档案中正式 LabResult 的非空 StandardMetric；最新结果允许非数值，完整历史保留同日多份、多单位及 comparator。普通趋势只绘持久化确定数值，单位分别切换，无换算或医学解释。关注按档案独立；报告迁移/删除后查询自然变化。
+
+验收环境在 backend 执行 `.venv/Scripts/alembic.exe upgrade head`（0006_metric_trend），重启 API；小程序从“检验报告→我的指标”进入，微信构建目录仍为 `miniapp/dist/build/mp-weixin`。本轮仅迁移临时测试库，未升级业务库或部署。没有新增依赖。
+
+新增 PostgreSQL 专项：`.venv/Scripts/python.exe tests/verify_postgres_metrics.py`。该脚本创建UUID临时库，验证0005→0006、空库迁移、关注并发、排序/单位/准入及迁移删除，最后删除并核实测试库不存在。Stage 05专项固定在0005保留原验收，Stage 03队列回归执行当前head。
+
+已知既有差异：Stage 03的OCR队列索引在migration与ORM中不一致，完整 `alembic check` 仍会报告这两项差异。Stage 06专项证明升级前后差异相同且新表/索引匹配，详情见RESULT；本轮未顺手修改OCR模型或历史迁移。

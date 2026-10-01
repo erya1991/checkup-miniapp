@@ -32,6 +32,7 @@ function go(url: string) { uni.navigateTo({ url }) }
 <template>
   <view class="page">
     <text class="title">检验报告</text>
+    <button @click="go('/pages/profile-metrics/index')">我的指标</button>
     <text v-if="profile">当前档案：{{ profile.display_name }}</text>
     <button @click="go('/pages/profiles/index')">切换健康档案</button>
     <text v-if="loading">正在加载...</text>

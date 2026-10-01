@@ -4,9 +4,11 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.api.v1.admin import router as admin_router
 from app.api.v1.business import router as business_router
 from app.api.v1.confirmation import router as confirmation_router
 from app.api.v1.health import router as health_router
@@ -31,6 +33,18 @@ app.include_router(ocr_router, prefix="/api/v1")
 app.include_router(confirmation_router, prefix="/api/v1")
 app.include_router(reports_router, prefix="/api/v1")
 app.include_router(profile_metrics_router, prefix="/api/v1")
+app.include_router(admin_router, prefix="/api/v1")
+
+
+@app.exception_handler(RequestValidationError)
+async def invalid_input(request: Request, exc: RequestValidationError):
+    from fastapi.exception_handlers import request_validation_exception_handler
+    if request.url.path.startswith("/api/v1/admin/"):
+        return JSONResponse(status_code=422, content={
+            "code": "INVALID_ADMIN_INPUT", "message": "INVALID_ADMIN_INPUT",
+            "request_id": request.state.request_id, "details": {},
+        })
+    return await request_validation_exception_handler(request, exc)
 
 
 @app.exception_handler(ConfirmationError)

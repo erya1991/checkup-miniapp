@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.metric_identity import active_dictionary, resolve_exact
 from app.models import (
     ConfirmationItem,
     HealthProfile,
@@ -107,19 +108,21 @@ def ensure_workspace(db: Session, ingestion: ReportIngestion) -> list[Confirmati
         return items
     if items:
         raise ConfirmationError("CONFIRMATION_SOURCE_INVALID")
-    metrics = {m.code: m.id for m in db.scalars(select(StandardMetric).where(
-        StandardMetric.status == "ACTIVE"))}
+    dictionary = active_dictionary(db, lock=True)
     for row in rows:
-        auto = row.final_decision == "FINAL_AUTO"
+        metric_id, reliable_code = resolve_exact(dictionary, row.standard_metric_code, row.raw_metric)
+        # Product exact resolution may prefill an identity, never raise OCR trust.
+        auto = row.final_decision == "FINAL_AUTO" and reliable_code
         db.add(ConfirmationItem(
             ingestion_id=ingestion.id, source_ocr_result_item_id=row.id,
             sequence_no=row.sequence_no, metric_name=row.raw_metric or "",
-            standard_metric_id=metrics.get(row.standard_metric_code),
+            standard_metric_id=metric_id,
             result_text=row.result_text or "", result_numeric=row.result_numeric,
             comparator=row.comparator, unit_original=row.raw_unit,
             unit_normalized=row.normalized_unit, reference_text=row.reference_text,
             reference_low=row.reference_low, reference_high=row.reference_high,
-            abnormal=row.abnormal, source_type="OCR_AUTO" if auto else "OCR_CORRECTED",
+            abnormal=row.abnormal,
+            source_type="OCR_AUTO" if row.final_decision == "FINAL_AUTO" else "OCR_CORRECTED",
             review_status="RESOLVED" if auto else "PENDING",
             resolution="ACCEPTED" if auto else None,
         ))
@@ -130,7 +133,8 @@ def ensure_workspace(db: Session, ingestion: ReportIngestion) -> list[Confirmati
 
 def active_metric(db: Session, metric_id: str | None) -> None:
     if metric_id is not None and not db.scalar(select(StandardMetric.id).where(
-            StandardMetric.id == metric_id, StandardMetric.status == "ACTIVE")):
+            StandardMetric.id == metric_id, StandardMetric.status == "ACTIVE")
+            .with_for_update(read=True)):
         raise ConfirmationError("STANDARD_METRIC_NOT_FOUND", 422)
 
 

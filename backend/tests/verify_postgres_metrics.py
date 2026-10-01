@@ -11,7 +11,7 @@ from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, func, inspect, select, text
+from sqlalchemy import MetaData, create_engine, func, inspect, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
@@ -210,8 +210,16 @@ def exercise(engine, context):
 
 
 def schema_drift(engine, before_stage06=False):
+    # Historical Stage 06 schema projection. Stage 07 verifies full current metadata
+    # separately, including category/aliases; all original Stage 06 assertions remain.
+    stage06_metadata = MetaData()
+    for table in Base.metadata.sorted_tables:
+        if table.name != "metric_aliases":
+            copied = table.to_metadata(stage06_metadata)
+            if table.name == "standard_metrics":
+                copied._columns.remove(copied.c.category)
     with engine.connect() as conn:
-        differences = compare_metadata(MigrationContext.configure(conn), Base.metadata)
+        differences = compare_metadata(MigrationContext.configure(conn), stage06_metadata)
     if before_stage06:
         # Stage 06 ORM is already loaded while this database is still at 0005.
         # These are exactly the two not-yet-applied Stage 06 schema additions.
@@ -256,12 +264,12 @@ def main():
                 context = legacy_reports(engine)
                 before = snapshot(sessionmaker(engine))
                 baseline_drift = schema_drift(engine, before_stage06=True)
-                command.upgrade(Config("alembic.ini"), "head")
+                command.upgrade(Config("alembic.ini"), "0006_metric_trend")
                 assert snapshot(sessionmaker(engine)) == before
                 assert schema_drift(engine) == baseline_drift
                 print("0005 existing formal snapshots unchanged across 0006; no OCR/re-commit/backfill: PASS")
             else:
-                command.upgrade(Config("alembic.ini"), "head")
+                command.upgrade(Config("alembic.ini"), "0006_metric_trend")
                 context = legacy_reports(engine)
             with engine.connect() as conn:
                 assert conn.scalar(text("SELECT version_num FROM alembic_version")) == "0006_metric_trend"
@@ -272,16 +280,19 @@ def main():
                        for i in inspector.get_indexes("lab_results"))
             assert {c["name"] for c in inspector.get_columns("metric_favorites")} == {
                 "id", "health_profile_id", "standard_metric_id", "created_at"}
-            exercise(engine, context)
             schema_drift(engine)
             print("Stage 06 schema matches ORM; only proven pre-existing Stage 03 OCR queue index drift remains: PASS")
+            command.upgrade(Config("alembic.ini"), "head")
+            exercise(engine, context)
             if index == 1:
                 saved_before = snapshot(sessionmaker(engine))
                 command.downgrade(Config("alembic.ini"), "0005_report_management")
                 assert not inspect(engine).has_table("metric_favorites")
                 assert snapshot(sessionmaker(engine)) == saved_before
-                command.upgrade(Config("alembic.ini"), "head")
+                command.upgrade(Config("alembic.ini"), "0006_metric_trend")
                 assert snapshot(sessionmaker(engine)) == saved_before
+                schema_drift(engine)
+                command.upgrade(Config("alembic.ini"), "head")
                 print("0006 downgrade/re-upgrade preserves formal results: PASS")
             print(("0005 -> 0006" if index == 0 else "empty -> 0001..0006") + " migration/integration: PASS")
         print("PostgreSQL 17 Stage 06 integration: PASS")

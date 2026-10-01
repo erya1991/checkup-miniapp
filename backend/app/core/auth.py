@@ -69,6 +69,8 @@ def current_user(authorization: str | None = Header(default=None),
         raise HTTPException(401, "AUTH_REQUIRED")
     try:
         payload = jwt.decode(authorization[7:], get_settings().jwt_secret, algorithms=["HS256"])
+        if payload.get("scope") == "admin":
+            raise jwt.InvalidTokenError()
         user = db.scalar(select(User).where(User.id == payload["sub"], User.status == "ACTIVE"))
     except (jwt.PyJWTError, KeyError):
         user = None

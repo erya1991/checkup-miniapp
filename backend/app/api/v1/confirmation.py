@@ -20,7 +20,7 @@ from app.confirmation import (
     ensure_workspace,
 )
 from app.core.auth import current_user, db_session
-from app.models import LabResult, OcrResultItem, StandardMetric, User
+from app.models import LabResult, MetricAlias, OcrResultItem, StandardMetric, User
 from app.models.entities import now
 
 router = APIRouter()
@@ -170,7 +170,10 @@ def standard_metrics(q: str = Query(default="", max_length=256),
     rows = db.scalars(select(StandardMetric).where(
         StandardMetric.status == "ACTIVE",
         or_(StandardMetric.code.icontains(query, autoescape=True),
-            StandardMetric.name.icontains(query, autoescape=True)))
+            StandardMetric.name.icontains(query, autoescape=True),
+            select(MetricAlias.id).where(MetricAlias.standard_metric_id == StandardMetric.id,
+                                         MetricAlias.status == "ACTIVE",
+                                         MetricAlias.alias.icontains(query, autoescape=True)).exists()))
         .order_by(StandardMetric.code).limit(100))
     return [{"id": m.id, "code": m.code, "name": m.name, "status": m.status} for m in rows]
 

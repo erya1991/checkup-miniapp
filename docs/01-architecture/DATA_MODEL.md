@@ -111,6 +111,12 @@ Retry 新建 OcrTask，不覆盖历史 run。
 StandardMetric 负责跨报告身份统一，不保存单一全局参考范围。
 MetricAlias 负责常见中文名、英文名、缩写、医院名称、OCR 变体映射。
 
+Stage 07：StandardMetric 增加可空 `category` 字符串；code 创建后只读；name/category 可维护；状态 ACTIVE/INACTIVE。PENDING_CONFIRMATION 的 ConfirmationItem 引用阻止停用；已 CONFIRMED 的引用不阻止停用。停用不隐藏已有正式历史、趋势或 Favorite。无参考范围、单位换算或复杂分类表。
+
+MetricAlias 包含 id、standard_metric_id FK、原始 alias、normalized_alias、alias_type、status、created_at、updated_at。type 为 SYNONYM / ABBREVIATION / OCR_VARIANT / HOSPITAL_NAME，只作管理元数据；目标创建后只读，无物理删除。ACTIVE normalized_alias 全局唯一，PostgreSQL partial unique index 保护；采用统一 NFKC、前导星号、gamma、casefold、简单分隔符归一化，并双向检查 ACTIVE namespace 冲突。
+
+Alias 只增强搜索与未来 Confirmation 首次初始化的 exact 预关联。优先可靠 OCR code，再 raw_metric 的 canonical name/code exact，再 Alias exact；歧义名称保守不关联。REVIEW 命中仍 PENDING；无可靠产品 code 映射的 FINAL_AUTO 不因 Alias 自动解决。旧 Confirmation、LabResult、OcrResultItem 不随主数据维护重算或回填。冻结 OCR matcher/Pipeline 不读取数据库 Alias。
+
 ## 12. MetricFavorite
 
 唯一约束：`health_profile_id + standard_metric_id`。

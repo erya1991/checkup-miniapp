@@ -31,7 +31,7 @@ checkup-miniapp/
 
 Stage 00～06 已验收通过。**Stage 04 = PASS**，已完成人工确认工作区、报告信息确认、AUTO/REVIEW 处理、StandardMetric 选择、手工补项/纯手工兜底、疑似重复提示，以及事务安全、幂等的正式 `LabReport / LabResult` 生成。项目负责人已在真实微信小程序中完成 W01～W04 人工验收，逐项证据见 [Stage 04 RESULT](docs/stages/04-confirmation-report/RESULT.md)。
 
-OCR 成功只到 `PENDING_CONFIRMATION`，必须经过用户人工确认和最终 commit；只有 commit 后的 `LabReport / LabResult` 才是正式健康数据。**Stage 05 = PASS（2026-10-01）**，正式报告管理已实现并通过最终自动回归，负责人已确认真实微信 V01～V06 全部 PASS。正式列表/详情仅查询 LabReport / LabResult；支持原图、整份档案迁移、完整硬删除和持久化 COS prefix 清理。Stage 06 已正式 PASS，Stage 07 未进入，Stage 05 证据见 [Stage 05 RESULT](docs/stages/05-report-management/RESULT.md)。
+OCR 成功只到 `PENDING_CONFIRMATION`，必须经过用户人工确认和最终 commit；只有 commit 后的 `LabReport / LabResult` 才是正式健康数据。**Stage 05 = PASS（2026-10-01）**，正式报告管理已实现并通过最终自动回归，负责人已确认真实微信 V01～V06 全部 PASS。正式列表/详情仅查询 LabReport / LabResult；支持原图、整份档案迁移、完整硬删除和持久化 COS prefix 清理。Stage 06 已正式 PASS，Stage 07 自动验证通过、等待人工验收，Stage 05 证据见 [Stage 05 RESULT](docs/stages/05-report-management/RESULT.md)。
 
 ## 本地运行
 
@@ -40,7 +40,7 @@ OCR 成功只到 `PENDING_CONFIRMATION`，必须经过用户人工确认和最�
 | PostgreSQL 17 | 根目录 `compose.yaml` | 复制 `.env.example` 为 `.env`，执行 `docker compose up -d postgres` |
 | Backend | `GET /api/v1/health` | 按 `backend/README.md` 创建 Python 3.12 虚拟环境、安装依赖、执行迁移并启动 |
 | Miniapp | 登录、档案、上传、OCR 状态/任务记录、统一确认页 | 在 `miniapp/` 执行 `pnpm install`、`pnpm test`、`pnpm typecheck`、`pnpm build:mp-weixin`；将 `dist/build/mp-weixin` 导入微信开发者工具 |
-| Admin Web | `/` 占位首页 | 在 `admin-web/` 执行 `pnpm install`、`pnpm dev`、`pnpm build` |
+| Admin Web | 独立登录、标准指标、别名、OCR 指标问题与只读任务 | 在 `admin-web/` 执行 `pnpm install`、`pnpm dev`、`pnpm build` |
 
 两个前端分别维护 `pnpm-lock.yaml`。真实 `.env` 不提交。后端运行前需将 `.env.example` 复制为 `.env`，设置 `DATABASE_URL`、至少 32 字符随机 `JWT_SECRET`、`WECHAT_APP_ID`、`WECHAT_APP_SECRET`、`COS_SECRET_ID`、`COS_SECRET_KEY`、`COS_BUCKET`、`COS_REGION`。执行 `docker compose up -d postgres`，在 `backend/` 执行 `.venv/Scripts/alembic.exe upgrade head` 和 `.venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000`。后端通过微信服务端 code 交换用户身份，签发自己的 Token；COS 永久密钥只在服务端使用。
 
@@ -113,8 +113,16 @@ Stage 05 运行补充（在 `backend/`）：
 
 我的指标只聚合当前本人档案中正式 LabResult 的非空 StandardMetric；最新结果允许非数值，完整历史保留同日多份、多单位及 comparator。普通趋势只绘持久化确定数值，单位分别切换，无换算或医学解释。关注按档案独立；报告迁移/删除后查询自然变化。
 
-验收环境在 backend 执行 `.venv/Scripts/alembic.exe upgrade head`（0006_metric_trend），重启 API；小程序从“检验报告→我的指标”进入，微信构建目录仍为 `miniapp/dist/build/mp-weixin`。初版工程验证仅迁移临时测试库，Codex 未升级业务库或部署。最终收尾只修改文档，保留原 PostgreSQL 17 专项证据并重跑必要自动回归；没有新增依赖。
+验收环境在 backend 执行 `.venv/Scripts/alembic.exe upgrade head`（Stage 06 引入0006，当前head为Stage 07的0007），重启 API；小程序从“检验报告→我的指标”进入，微信构建目录仍为 `miniapp/dist/build/mp-weixin`。初版工程验证仅迁移临时测试库，Codex 未升级业务库或部署。最终收尾只修改文档，保留原 PostgreSQL 17 专项证据并重跑必要自动回归；没有新增依赖。
 
-新增 PostgreSQL 专项：`.venv/Scripts/python.exe tests/verify_postgres_metrics.py`。该脚本创建UUID临时库，验证0005→0006、空库迁移、关注并发、排序/单位/准入及迁移删除，最后删除并核实测试库不存在。Stage 05专项固定在0005保留原验收，Stage 03队列回归执行当前head。
+新增 PostgreSQL 专项：`.venv/Scripts/python.exe tests/verify_postgres_metrics.py`。该脚本创建UUID临时库，验证0005→0006、空库迁移、关注并发、排序/单位/准入及迁移删除，最后删除并核实测试库不存在。Stage 04～06专项保留旧schema断言，再升级当前head执行业务回归，Stage 03队列回归执行当前head。
 
 已知既有差异：Stage 03的OCR队列索引在migration与ORM中不一致，完整 `alembic check` 仍会报告这两项差异。Stage 06专项证明升级前后差异相同且新表/索引匹配，详情见RESULT；本轮未顺手修改OCR模型或历史迁移。
+
+## Stage 07 标准指标 / 别名 / OCR 轻量管理
+
+**AUTOMATED PASS / WAITING MANUAL ACCEPTANCE（2026-10-01）**。StandardMetric 创建、name/category 编辑、停用/恢复，MetricAlias 管理、Alias 搜索和首次 Confirmation exact 预关联，以及 OCR 指标问题和只读任务页已实现。code、Alias 目标创建后只读；pending 引用阻止停用，既有历史不隐藏、不回填。REVIEW 仍需人工确认，冻结 OCR runtime / Pipeline version / Stage 03 migration drift 均未修改。
+
+新增 `0007_standard_metric_admin`（前置0006），仅 category、metric_aliases 及其约束/索引；12项seed保留。未迁移业务库、配置真实管理员或部署。验收前需在目标环境升级 head、配置独立管理员、重启 API / Admin，步骤见 [Admin README](admin-web/README.md)。
+
+后端106项、小程序29项、Ruff、两端typecheck、微信构建与Admin build通过。PG17 Stage 07 专项及 Stage 03～06 原专项通过，临时库无残留；详情见 [RESULT](docs/stages/07-admin/RESULT.md)。负责人真实 Admin Web / 微信 [T01～T13](docs/stages/07-admin/ACCEPTANCE.md) 全部待验，Stage 07 尚未最终 PASS。

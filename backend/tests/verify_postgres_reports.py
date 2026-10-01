@@ -342,19 +342,27 @@ def main():
                 command.upgrade(Config('alembic.ini'), '0003_ocr')
                 uid, iid, tid = legacy_fixture(engine)
                 command.upgrade(Config('alembic.ini'), '0004_confirmation_report')
+                with engine.connect() as conn:
+                    assert conn.scalar(text('SELECT version_num FROM alembic_version')) == '0004_confirmation_report'
+                command.upgrade(Config('alembic.ini'), 'head')
                 exercise_stage04(engine, uid, iid, tid)
+                # Produce the legacy formal report with current services, then restore
+                # Stage 04 schema to test the original Stage 05 incremental migration.
+                command.downgrade(Config('alembic.ini'), '0004_confirmation_report')
                 tables = MetaData()
                 tables.reflect(engine)
                 with engine.begin() as conn:
                     conn.execute(tables.tables['file_cleanups'].insert(),
                                  {'id': str(uuid4()), 'cos_object_key': 'legacy/object', 'status': 'PENDING', 'created_at': now()})
                 command.upgrade(Config('alembic.ini'), '0005_report_management')
-                exercise(engine, uid, iid)
             else:
                 command.upgrade(Config('alembic.ini'), '0005_report_management')
             with engine.connect() as conn:
                 assert conn.scalar(text('SELECT version_num FROM alembic_version')) == '0005_report_management'
             assert any(c['name'] == 'ck_file_cleanup_target_type' for c in inspect(engine).get_check_constraints('file_cleanups'))
+            command.upgrade(Config('alembic.ini'), 'head')
+            if index == 0:
+                exercise(engine, uid, iid)
             print(('0004 -> 0005' if index == 0 else 'empty -> 0001..0005') + ' migration: PASS')
         print('PostgreSQL 17 Stage 05 integration: PASS')
     finally:

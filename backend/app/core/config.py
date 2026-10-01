@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     database_url: str
     log_level: str = "INFO"
     jwt_secret: str = ""
+    admin_username: str = ""
+    admin_password_hash: str = ""
+    admin_jwt_secret: str = ""
     wechat_app_id: str = ""
     wechat_app_secret: str = ""
     cos_secret_id: str = ""

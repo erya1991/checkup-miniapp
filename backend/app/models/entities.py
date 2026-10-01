@@ -15,6 +15,7 @@ from sqlalchemy import (
     Text,
     Time,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -165,7 +166,27 @@ class StandardMetric(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     code: Mapped[str] = mapped_column(String(64), unique=True)
     name: Mapped[str] = mapped_column(String(256))
+    category: Mapped[str | None] = mapped_column(String(80), nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="ACTIVE")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+
+
+class MetricAlias(Base):
+    __tablename__ = "metric_aliases"
+    __table_args__ = (
+        CheckConstraint("status IN ('ACTIVE', 'INACTIVE')", name="ck_metric_aliases_status"),
+        CheckConstraint("alias_type IN ('SYNONYM', 'ABBREVIATION', 'OCR_VARIANT', 'HOSPITAL_NAME')",
+                        name="ck_metric_aliases_type"),
+        Index("uq_metric_aliases_active_normalized", "normalized_alias", unique=True,
+              postgresql_where=text("status = 'ACTIVE'"), sqlite_where=text("status = 'ACTIVE'")),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    standard_metric_id: Mapped[str] = mapped_column(ForeignKey("standard_metrics.id"), index=True)
+    alias: Mapped[str] = mapped_column(String(256))
+    normalized_alias: Mapped[str] = mapped_column(String(256), index=True)
+    alias_type: Mapped[str] = mapped_column(String(32))
+    status: Mapped[str] = mapped_column(String(16), default="ACTIVE", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
 

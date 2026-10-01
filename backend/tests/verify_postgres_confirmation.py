@@ -212,11 +212,14 @@ def main():
                 command.upgrade(Config("alembic.ini"), "0003_ocr")
                 user_id, ingestion_id, task_id = legacy_fixture(engine)
                 command.upgrade(Config("alembic.ini"), "0004_confirmation_report")
-                exercise(engine, user_id, ingestion_id, task_id)
             else:
                 command.upgrade(Config("alembic.ini"), "0004_confirmation_report")
             with engine.connect() as connection:
                 assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0004_confirmation_report"
+            # Keep historical migration assertions; current services require current schema.
+            command.upgrade(Config("alembic.ini"), "head")
+            if index == 0:
+                exercise(engine, user_id, ingestion_id, task_id)
             print(("0003 -> 0004" if index == 0 else "empty -> 0001 -> 0002 -> 0003 -> 0004") + " migration: PASS")
         print("PostgreSQL 17 Stage 04 integration: PASS")
     finally:

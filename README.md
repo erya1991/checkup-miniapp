@@ -29,9 +29,9 @@ checkup-miniapp/
 
 ## 当前阶段
 
-Stage 00～04 已验收通过。**Stage 04 = PASS**，已完成人工确认工作区、报告信息确认、AUTO/REVIEW 处理、StandardMetric 选择、手工补项/纯手工兜底、疑似重复提示，以及事务安全、幂等的正式 `LabReport / LabResult` 生成。项目负责人已在真实微信小程序中完成 W01～W04 人工验收，逐项证据见 [Stage 04 RESULT](docs/stages/04-confirmation-report/RESULT.md)。
+Stage 00～05 已验收通过。**Stage 04 = PASS**，已完成人工确认工作区、报告信息确认、AUTO/REVIEW 处理、StandardMetric 选择、手工补项/纯手工兜底、疑似重复提示，以及事务安全、幂等的正式 `LabReport / LabResult` 生成。项目负责人已在真实微信小程序中完成 W01～W04 人工验收，逐项证据见 [Stage 04 RESULT](docs/stages/04-confirmation-report/RESULT.md)。
 
-OCR 成功只到 `PENDING_CONFIRMATION`，必须经过用户人工确认和最终 commit；只有 commit 后的 `LabReport / LabResult` 才是正式健康数据。**Stage 05 正式报告管理已实现，工程自动验证通过，待负责人真实微信 V01～V06 验收，当前不得判定 PASS**。正式列表/详情仅查询 LabReport / LabResult；支持原图、整份档案迁移、完整硬删除和持久化 COS prefix 清理。Stage 06/07 未进入，证据见 [Stage 05 RESULT](docs/stages/05-report-management/RESULT.md)。
+OCR 成功只到 `PENDING_CONFIRMATION`，必须经过用户人工确认和最终 commit；只有 commit 后的 `LabReport / LabResult` 才是正式健康数据。**Stage 05 = PASS（2026-10-01）**，正式报告管理已实现并通过最终自动回归，负责人已确认真实微信 V01～V06 全部 PASS。正式列表/详情仅查询 LabReport / LabResult；支持原图、整份档案迁移、完整硬删除和持久化 COS prefix 清理。Stage 06/07 未进入，证据见 [Stage 05 RESULT](docs/stages/05-report-management/RESULT.md)。
 
 ## 本地运行
 
@@ -104,4 +104,4 @@ Stage 05 运行补充（在 `backend/`）：
 .venv/Scripts/python.exe tests/verify_postgres_reports.py
 ```
 
-`0005_report_management` 只增加 `FileCleanup.target_type`，历史记录默认为 OBJECT。正式报告删除先在同一事务登记 PREFIX cleanup 并硬删除完整来源链；事务提交后尝试即时 COS 删除，失败仍返回 204 并保留 PENDING。cleanup worker 每 10 秒重试 PENDING，按行锁跳过其它消费者正在处理的记录，支持 OBJECT 与分页 PREFIX，只有成功才置 DONE。运行账户需具备 COS 列举对象、删除对象权限。消费者必须与 API/OCR Worker 一起持续运行；没有引入新中间件。本轮验证只操作临时测试库与合成 COS 替身，未迁移开发人员业务数据库、未删除真实 COS 文件，真实微信验收前须执行上述正常 migration 并启动/重启进程。
+`0005_report_management` 只增加 `FileCleanup.target_type`，历史记录默认为 OBJECT。正式报告删除先在同一事务登记 PREFIX cleanup 并硬删除完整来源链；事务提交后尝试即时 COS 删除，失败仍返回 204 并保留 PENDING。cleanup worker 每 10 秒重试 PENDING，按行锁跳过其它消费者正在处理的记录，支持 OBJECT 与分页 PREFIX，只有成功才置 DONE。运行账户需具备 COS 列举对象、删除对象权限。消费者必须与 API/OCR Worker 一起持续运行；没有引入新中间件。自动验证只操作临时测试库与合成 COS 替身，Codex未迁移开发人员业务数据库、未删除真实 COS 文件；负责人真实微信 V01～V06 已 PASS，未人为制造真实 COS 故障。正常目标环境仍须执行上述 migration 并启动/重启进程，生产部署与消费者持续运行不由自动验证代验。

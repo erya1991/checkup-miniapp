@@ -1,8 +1,8 @@
 # Stage 05｜正式报告管理：实施结果
 
-日期：2026-09-30。
+实施与修复日期：2026-09-30；最终收尾及人工验收反馈记录日期：2026-10-01。
 
-**工程实现与自动验证已通过；当前 Stage 05 = FAIL（待负责人真实微信人工验收，不是最终 PASS）。** 冻结 ACCEPTANCE 的 V01～V06 尚无负责人实机反馈，不能由单测、API、代码核对或构建替代。Stage 04 原 PASS 事实保持，本轮新增工程回归全部通过。
+**Stage 05 = PASS（2026-10-01）。** 工程实现与最终自动回归通过；项目负责人已在真实微信小程序完成冻结 ACCEPTANCE 的 V01～V06，并在本次收尾反馈全部 PASS。171 项 P0 均有下表注明的工程、负责人实机人工或文档核对通过证据，满足冻结 Z 最终判定。人工记录来自负责人反馈，Codex 未代操作微信或以自动验证替代人工验收；Stage 04 原 PASS 事实保持。
 
 ## 1. 实际完成内容
 
@@ -24,7 +24,9 @@
 
 初次实施时用户的 Stage 05 PLAN / ACCEPTANCE 和 AGENTS.md 改动均保持未覆盖，未修改 0001～0004 migration。
 
-本次回归修复仅修改 7 个文件：`backend/app/cleanup_worker.py`、`backend/tests/test_stage05.py`、`backend/tests/verify_postgres_reports.py`、`miniapp/src/reports.ts`、`miniapp/src/pages/report-detail/index.vue`、`miniapp/tests/reports.test.mjs`、本 `RESULT.md`。未修改 PLAN / ACCEPTANCE、基线、README 或 migration。
+此前回归修复修改 7 个文件：`backend/app/cleanup_worker.py`、`backend/tests/test_stage05.py`、`backend/tests/verify_postgres_reports.py`、`miniapp/src/reports.ts`、`miniapp/src/pages/report-detail/index.vue`、`miniapp/tests/reports.test.mjs`、本 `RESULT.md`。该次修复未修改 PLAN / ACCEPTANCE、基线、README 或 migration。
+
+本次最终收尾仅修改 4 个文档：本 `RESULT.md`、根 `README.md`、`backend/README.md`、本目录 `README.md`；同步最终状态、负责人验收事实和真实 Git 状态。未修改业务代码、测试、migration、冻结 PLAN / ACCEPTANCE 或 Stage06/07。
 
 ## 3. Migration
 
@@ -32,7 +34,7 @@
 
 只新增 `FileCleanup.target_type`（非空、默认 OBJECT），CHECK 约束只允许 OBJECT/PREFIX；历史记录增量升级后回填 OBJECT。未增加 report/user/ingestion/retry_count/error_message 等额外字段，LabReport/LabResult 业务结构保持不变。
 
-两座临时 PostgreSQL 17 库验证了 0004 → 0005 和空库 0001 → 0005，升级前已建立 Stage 04 合成正式报告，升级后可直接查询，无需重新 OCR/确认/commit。**本轮没有升级开发人员当前业务数据库**；实机验收前需按第 11 节对正常目标环境执行 migration。
+两座临时 PostgreSQL 17 库验证了 0004 → 0005 和空库 0001 → 0005，升级前已建立 Stage 04 合成正式报告，升级后可直接查询，无需重新 OCR/确认/commit。**Codex 的本次自动回归没有升级或修改开发人员当前业务数据库**；正常目标环境的 migration 与进程运行要求见 README，不把本次临时库验证视为生产部署证据。
 
 ## 4. 报告 API / 列表 / 详情 / 原图
 
@@ -69,29 +71,29 @@ OCR 报告迁移前后自动比对 ConfirmationItem/OcrResultItem/OcrTask/Report
 
 `python -m app.cleanup_worker` 为可执行独立消费者，与 API/OCR Worker 同 codebase。每10秒扫描 PENDING，处理记录持有 FOR UPDATE SKIP LOCKED 行锁；OBJECT 先检查是否仍有任意 ReportAsset 引用同一 cos_object_key：有引用时不调用 COS、不删除 Asset，保留 PENDING；解除引用后才删除单对象。PREFIX 用 Marker 分页列举并逐个删除，循环复核 prefix 为空后才 DONE。网络/数据库失败继续重试，不增加新中间件或配置字段。COS SDK普通 INFO日志已抑制，cleanup日志只记标识与稳定错误码，不记录医疗全文/SQL绑定值/object prefix。
 
-COS 分页/失败/重试使用合成 SDK 替身（2105 个对象）验证；PostgreSQL cleanup 使用合成 COS 替身。**未对真实 COS 文件执行删除测试，也未把真实云存储清理或进程部署标为已验收。**
+COS 分页/失败/重试使用合成 SDK 替身（2105 个对象）验证；PostgreSQL cleanup 使用合成 COS 替身。**Codex 自动验证未删除真实 COS 文件。** 负责人 V03/V06 真实微信原图与删除主流程 PASS 单独记录在第11节；真实 COS 故障未人为制造，分页、失败补偿和消费者重试仍以自动/临时库证据为准，不据此补写真实云存储故障或进程部署验收。
 
 ## 7. 实际自动验证结果
 
-以下均在本轮实际执行，未删除/skip/弱化既有测试：
+以下命令均于 2026-10-01 最终收尾重新执行并通过，未新增、删除/skip/弱化测试；全部使用当前 main 的既有测试与集成脚本：
 
 | cwd | 命令 | 最终结果 |
 | --- | --- | --- |
-| backend | `.venv/Scripts/python.exe -m pytest -q` | PASS，66 passed，0 skipped；原有52项完整保留，Stage05共14项（本次新增3项） |
+| backend | `.venv/Scripts/python.exe -m pytest -q` | PASS，66 passed，0 skipped；原有52项完整保留，Stage05共14项（含此前修复新增3项） |
 | backend | `.venv/Scripts/ruff.exe check . --no-cache` | PASS，All checks passed |
 | backend | `.venv/Scripts/alembic.exe heads` | `0005_report_management (head)` |
 | backend | `.venv/Scripts/python.exe tests/verify_postgres_reports.py` | PASS，真实PostgreSQL17，两座临时库均删除并查询核实不存在 |
 | backend | `.venv/Scripts/python.exe tests/verify_postgres_confirmation.py` | PASS，Stage04两座临时库最终删除 |
 | backend | `.venv/Scripts/python.exe tests/verify_postgres_queue.py` | PASS，Stage03队列在0005 head下验证，临时库finally删除 |
-| miniapp | `pnpm test` | PASS，21 tests，0 skipped；原有13项完整保留，本次新增单位展示回归1项 |
+| miniapp | `pnpm test` | PASS，21 tests，0 skipped；原有13项完整保留，含此前新增单位展示回归1项 |
 | miniapp | `pnpm typecheck` | PASS |
 | miniapp | `pnpm build:mp-weixin` | PASS，微信产物在dist/build/mp-weixin |
 | admin-web | `pnpm typecheck` | PASS |
 | admin-web | `pnpm build` | PASS |
 
-Stage05 PostgreSQL实际场景：历史 OBJECT回填；既有正式报告无需重建；部分迁移后真实DB错误 rollback；双独立session迁移vs迁移；迁移vs目标新commit的重复串行；cleanup登记失败和后段删除失败 rollback；迁移vs删除；并发重复DELETE仅一份PREFIX；正式域/确认/OCR/上传全链清空；PREFIX持久留存；COS失败不恢复数据；OBJECT/PREFIX消费者重试与重复处理；本次增加有 ReportAsset 引用时重复消费仍不调用 COS / 保留 PENDING，完整删除解除引用后 COS 失败保留 PENDING、重试成功 DONE、再次消费不重复删除。数据库名只由固定测试前缀和UUID生成，业务库不作为测试库。
+Stage05 PostgreSQL实际场景：历史 OBJECT回填；既有正式报告无需重建；部分迁移后真实DB错误 rollback；双独立session迁移vs迁移；迁移vs目标新commit的重复串行；cleanup登记失败和后段删除失败 rollback；迁移vs删除；并发重复DELETE仅一份PREFIX；正式域/确认/OCR/上传全链清空；PREFIX持久留存；COS失败不恢复数据；OBJECT/PREFIX消费者重试与重复处理；包含此前修复的有 ReportAsset 引用时重复消费仍不调用 COS / 保留 PENDING，完整删除解除引用后 COS 失败保留 PENDING、重试成功 DONE、再次消费不重复删除。数据库名只由固定测试前缀和UUID生成，业务库不作为测试库。
 
-本次新增后端回归通过实际 API 构造“原图删除失败 → 保留 Asset / OBJECT PENDING”，分别覆盖未 commit 和已 commit 正式报告；重复消费不触发 COS 删除，原图预览仍可用，显式重试删除可完成。无引用 OBJECT 的 COS 失败、成功重试和重复消费均通过。小程序回归覆盖 normalized 优先、NULL/空串回退、两者缺失和存储值不变。
+此前新增的后端回归在本次重跑中通过实际 API 构造“原图删除失败 → 保留 Asset / OBJECT PENDING”，分别覆盖未 commit 和已 commit 正式报告；重复消费不触发 COS 删除，原图预览仍可用，显式重试删除可完成。无引用 OBJECT 的 COS 失败、成功重试和重复消费均通过。小程序回归覆盖 normalized 优先、NULL/空串回退、两者缺失和存储值不变。
 
 ## 8. Stage 04 回归
 
@@ -102,36 +104,40 @@ Stage05 PostgreSQL实际场景：历史 OBJECT回填；既有正式报告无需�
 ## 9. 设计偏差 / 已知问题
 
 - 无产品/数据规则偏差，无新依赖，无OCR算法改动。独立PG脚本名为 verify_postgres_reports.py，与PLAN建议文件名等价。
-- 真实微信V01～V06未执行；页面编译与逻辑测试不等于实机效果验证。
-- 目标业务库未升级、cleanup进程未替负责人部署；需验收前按第11节启动。消费者未运行时不能宣称失败文件已最终清除。
+- 真实微信V01～V06已由负责人验收并反馈全部 PASS，记录日期2026-10-01；未补写设备型号、应用版本或逐步操作等未提供的信息。
+- Codex本次只操作临时测试库，未执行目标业务库 migration 或 cleanup 进程部署。负责人未单独反馈生产部署/消费者持续运行情况；消费者未运行时不能宣称失败文件已最终清除，运行要求保留在 README。
 - COS失败后允许短时文件留存，PENDING重试成功才最终清理；这是冻结的一致性策略。已发出的300秒私有URL不能由产品API主动撤销，删除后不再签发新的URL。
 - 保留既有非阻塞警告：FastAPI/Starlette TestClient弃用提示、Node模块类型提示、Admin产物较大提示。未为消除警告扩大依赖/重构范围。
-- 本次已修复：Stage02原图删除失败后遗留的 OBJECT/PENDING 曾可能误删仍被 ReportAsset 引用的原图；现以全局引用检查保护，未 commit / 已 commit 场景及 PostgreSQL 17 回归通过。有引用时保持 PENDING 属于保护行为，不能据此宣称文件已删除。
-- 本次已修复：正式详情此前优先显示 unit_original；现优先 unit_normalized，缺失时回退原单位，六组展示回归通过。
+- 此前已修复并于本次回归通过：Stage02原图删除失败后遗留的 OBJECT/PENDING 曾可能误删仍被 ReportAsset 引用的原图；现以全局引用检查保护，未 commit / 已 commit 场景及 PostgreSQL 17 回归通过。有引用时保持 PENDING 属于保护行为，不能据此宣称文件已删除。
+- 此前已修复并于本次回归通过：正式详情此前优先显示 unit_original；现优先 unit_normalized，缺失时回退原单位，六组展示回归通过。
 - 本次整仓 `git diff --check` 通过。
 
 ## 10. Git / Stage 06 边界
 
-本次修复开始时 main 工作区干净；结束时仅第2节列出的7个文件为未提交修改。未commit、未push、未切换分支。本轮不实现我的指标、历史、趋势、关注、单位趋势分组、StandardMetric/MetricAlias/OCR后台。
+本次最终收尾开始时 main 工作区干净；HEAD、本地 origin/main 与 `git ls-remote origin refs/heads/main` 返回值均为 `fa8c58db521e96b95572df217aa3c6bee22e3a6c`（Protect referenced report assets during cleanup）。此前实现及修复已在该提交及其祖先中，远端 main 已包含，原“Stage05实现/7个修复文件未提交、未推送”描述已过期。
 
-下一阶段只在Stage05负责人实机验收收口后另行授权；Stage06应直接查询LabResult，未关联标准指标不得纳入标准聚合，迁移/删除已自然更新其数据基础。
+本次结束时仅第2节列出的4个文档为未提交修改；Codex未执行新的commit、push或切换分支，后续文档Git操作由负责人决定。本轮不实现我的指标、历史、趋势、关注、单位趋势分组、StandardMetric/MetricAlias/OCR后台。
 
-## 11. 负责人真实微信人工验收待办
+Stage05最终PASS，已具备进入Stage06边界讨论与规划的前置条件；正式实施仍需负责人另行授权，按AGENTS完成边界确认、PLAN冻结、ACCEPTANCE冻结。本次不修改或启动Stage06。Stage06应直接查询LabResult，未关联标准指标不得纳入标准聚合，迁移/删除已自然更新其数据基础。
 
-准备：在backend对正常目标数据库执行 `.venv/Scripts/alembic.exe upgrade head`，重启API，持续启动 `.venv/Scripts/python.exe -m app.cleanup_worker`；将本轮miniapp/dist/build/mp-weixin导入真实微信开发者工具，检查既有HTTPS/COS合法域名及私有权限配置。使用测试档案/报告，不以真实隐私数据做破坏性验收。
+## 11. 负责人真实微信人工验收记录
 
-- V01：首页→检验报告；已commit显示、未commit不显示；日期/医院/数量/异常标记；切换档案隔离。
-- V02：数值/非数值、单位/参考范围/abnormal、标准/未关联项、顺序；无正式编辑入口。
-- V03：多页原图、页序、放大、返回、再次进入。
-- V04：两个本人管理测试档案间整份迁移，源消失/目标出现/正式值不变/原图可看。
-- V05：目标疑似重复→取消不迁移；再次明确仍然迁移且不覆盖旧报告。
-- V06：危险二次确认，完整说明结果/原图/识别数据不可恢复；删除后列表/详情/原图/任务记录不可再访问，其它报告不受影响。
+验收执行者：项目负责人。反馈来源：本次 Stage05 最终收尾请求；记录日期：2026-10-01。负责人明确确认已在真实微信小程序完成以下六项最终人工验收，全部 PASS。下表列出冻结验收项，不补写未反馈的逐步操作细节，Codex未代操作微信。
 
-上述六项全部待负责人反馈。COS故障无需负责人在生产环境人为制造，已由自动/临时数据库验证承担。
+| 编号 | 冻结验收项 | 负责人真实微信验收结果 |
+| --- | --- | --- |
+| `V01` | 正式报告列表完整流程 | PASS |
+| `V02` | 正式报告详情 | PASS |
+| `V03` | 原始报告查看 | PASS |
+| `V04` | 正式报告迁移 | PASS |
+| `V05` | 疑似重复迁移 | PASS |
+| `V06` | 正式报告删除 | PASS |
 
-## 12. 当前 Stage 05 判定与逐项验收证据
+真实 COS 故障未人工制造，ACCEPTANCE V06 明确由自动/集成测试承担异常补偿验证。COS分页、失败/PENDING补偿、解除引用后的重试与幂等由第7节合成替身和PostgreSQL临时库验证；不将其冒充负责人实机故障验证。V01～V06反馈也不作为生产部署或cleanup进程持续运行的单独验收记录。
 
-工程实现和自动验证通过；V01～V06待真实微信人工验收。按冻结Z条件，当前 **FAIL（待人工验收）**，不得标PASS。以下“工程”仅表示自动测试、真实临时PostgreSQL或明确的源码/构建核对，不表示负责人实机执行；前端交互仍须V节最终验收。
+## 12. 最终 Stage 05 判定与逐项验收证据
+
+工程实现、2026-10-01最终自动回归和负责人真实微信V01～V06全部PASS。A～X共171项P0均有通过证据，按冻结Z条件，最终 **Stage 05 = PASS**。以下“工程”仅表示自动测试、真实临时PostgreSQL或明确的源码/构建核对；人工证据只引用第11节负责人反馈，不扩展为未反馈的故障注入、超时或部署操作。
 
 | 编号 | 验收项 | 本轮结果 | 证据 / 验证边界 |
 | --- | --- | --- | --- |
@@ -236,34 +242,34 @@ Stage05 PostgreSQL实际场景：历史 OBJECT回填；既有正式报告无需�
 | L08 | 普通 API 不暴露 COS Secret | PASS（工程/文档） | 跨用户六类接口测试；既有日志回归+cleanup敏感异常捕获验证 |
 | L09 | 日志不包含完整检验结果 | PASS（工程/文档） | 跨用户六类接口测试；既有日志回归+cleanup敏感异常捕获验证 |
 | L10 | Cleanup 日志不输出医疗全文 | PASS（工程/文档） | 跨用户六类接口测试；既有日志回归+cleanup敏感异常捕获验证 |
-| M01 | 首页存在正式报告入口 | 工程核对通过（非实机） | reports页面onShow/状态/当前档案/版本防覆盖源码核对+路由分页逻辑测试+构建 |
-| M02 | 列表使用当前默认 HealthProfile | 工程核对通过（非实机） | reports页面onShow/状态/当前档案/版本防覆盖源码核对+路由分页逻辑测试+构建 |
-| M03 | 切换 HealthProfile 后报告列表切换 | 工程核对通过（非实机） | reports页面onShow/状态/当前档案/版本防覆盖源码核对+路由分页逻辑测试+构建 |
-| M04 | 列表支持 loading | 工程核对通过（非实机） | reports页面onShow/状态/当前档案/版本防覆盖源码核对+路由分页逻辑测试+构建 |
-| M05 | 列表支持 empty | 工程核对通过（非实机） | reports页面onShow/状态/当前档案/版本防覆盖源码核对+路由分页逻辑测试+构建 |
-| M06 | 列表支持 error/retry | 工程核对通过（非实机） | reports页面onShow/状态/当前档案/版本防覆盖源码核对+路由分页逻辑测试+构建 |
-| M07 | 列表支持加载更多 | 工程核对通过（非实机） | reports页面onShow/状态/当前档案/版本防覆盖源码核对+路由分页逻辑测试+构建 |
-| M08 | 点击报告进入正式详情 | 工程核对通过（非实机） | reports页面onShow/状态/当前档案/版本防覆盖源码核对+路由分页逻辑测试+构建 |
-| N01 | 基本信息正确 | 工程核对通过（非实机） | 详情/原图源码核对、正式API与页序测试+类型检查/构建；非实机 |
-| N02 | 正式结果列表正确 | 工程核对通过（非实机） | 详情/原图源码核对、正式API与页序测试+类型检查/构建；非实机 |
-| N03 | 非数值结果正确 | 工程核对通过（非实机） | 详情/原图源码核对、正式API与页序测试+类型检查/构建；非实机 |
-| N04 | 未关联 StandardMetric 项可查看 | 工程核对通过（非实机） | 详情/原图源码核对、正式API与页序测试+类型检查/构建；非实机 |
-| N05 | 原始报告入口可达 | 工程核对通过（非实机） | 详情/原图源码核对、正式API与页序测试+类型检查/构建；非实机 |
-| N06 | 多页原图顺序正确 | 工程核对通过（非实机） | 详情/原图源码核对、正式API与页序测试+类型检查/构建；非实机 |
-| N07 | 原图可放大查看 | 工程核对通过（非实机） | 详情/原图源码核对、正式API与页序测试+类型检查/构建；非实机 |
-| N08 | 原图加载失败有错误提示和重试 | 工程核对通过（非实机） | 详情/原图源码核对、正式API与页序测试+类型检查/构建；非实机 |
-| O01 | 迁移只展示当前用户其它档案 | 工程核对通过（非实机） | 详情选择/确认/删除源码核对；duplicate取消继续和删除跳转逻辑测试；非实机 |
-| O02 | 迁移前有明确确认 | 工程核对通过（非实机） | 详情选择/确认/删除源码核对；duplicate取消继续和删除跳转逻辑测试；非实机 |
-| O03 | duplicate 迁移有二次提示 | 工程核对通过（非实机） | 详情选择/确认/删除源码核对；duplicate取消继续和删除跳转逻辑测试；非实机 |
-| O04 | 用户可取消 duplicate 迁移 | 工程核对通过（非实机） | 详情选择/确认/删除源码核对；duplicate取消继续和删除跳转逻辑测试；非实机 |
-| O05 | 用户可明确继续 duplicate 迁移 | 工程核对通过（非实机） | 详情选择/确认/删除源码核对；duplicate取消继续和删除跳转逻辑测试；非实机 |
-| O06 | 迁移成功后详情归属刷新 | 工程核对通过（非实机） | 详情选择/确认/删除源码核对；duplicate取消继续和删除跳转逻辑测试；非实机 |
-| O07 | 删除必须二次确认 | 工程核对通过（非实机） | 详情选择/确认/删除源码核对；duplicate取消继续和删除跳转逻辑测试；非实机 |
-| O08 | 删除成功返回列表并刷新 | 工程核对通过（非实机） | 详情选择/确认/删除源码核对；duplicate取消继续和删除跳转逻辑测试；非实机 |
-| P01 | 首页不把 CONFIRMED 当当前 draft | 工程核对通过（非实机） | unfinished六状态测试、首页任务过滤、成功report_id路由源码核对 |
-| P02 | 当前 ingestion 只取未完成状态 | 工程核对通过（非实机） | unfinished六状态测试、首页任务过滤、成功report_id路由源码核对 |
-| P03 | 识别任务记录与正式报告分离 | 工程核对通过（非实机） | unfinished六状态测试、首页任务过滤、成功report_id路由源码核对 |
-| P04 | Stage 04 commit 后可查看正式报告 | 工程核对通过（非实机） | unfinished六状态测试、首页任务过滤、成功report_id路由源码核对 |
+| M01 | 首页存在正式报告入口 | PASS（工程＋负责人实机） | reports页面onShow/状态/当前档案/版本防覆盖源码核对+路由分页逻辑测试+构建；负责人V01整体验收PASS，反馈见第11节 |
+| M02 | 列表使用当前默认 HealthProfile | PASS（工程＋负责人实机） | reports页面onShow/状态/当前档案/版本防覆盖源码核对+路由分页逻辑测试+构建；负责人V01整体验收PASS，反馈见第11节 |
+| M03 | 切换 HealthProfile 后报告列表切换 | PASS（工程＋负责人实机） | reports页面onShow/状态/当前档案/版本防覆盖源码核对+路由分页逻辑测试+构建；负责人V01整体验收PASS，反馈见第11节 |
+| M04 | 列表支持 loading | PASS（工程） | reports页面onShow/状态/当前档案/版本防覆盖源码核对+路由分页逻辑测试+构建 |
+| M05 | 列表支持 empty | PASS（工程） | reports页面onShow/状态/当前档案/版本防覆盖源码核对+路由分页逻辑测试+构建 |
+| M06 | 列表支持 error/retry | PASS（工程） | reports页面onShow/状态/当前档案/版本防覆盖源码核对+路由分页逻辑测试+构建 |
+| M07 | 列表支持加载更多 | PASS（工程） | reports页面onShow/状态/当前档案/版本防覆盖源码核对+路由分页逻辑测试+构建 |
+| M08 | 点击报告进入正式详情 | PASS（工程＋负责人实机） | reports页面onShow/状态/当前档案/版本防覆盖源码核对+路由分页逻辑测试+构建；负责人V01整体验收PASS，反馈见第11节 |
+| N01 | 基本信息正确 | PASS（工程＋负责人实机） | 详情/原图源码核对、正式API与页序测试+类型检查/构建；负责人V02整体验收PASS，反馈见第11节 |
+| N02 | 正式结果列表正确 | PASS（工程＋负责人实机） | 详情/原图源码核对、正式API与页序测试+类型检查/构建；负责人V02整体验收PASS，反馈见第11节 |
+| N03 | 非数值结果正确 | PASS（工程＋负责人实机） | 详情/原图源码核对、正式API与页序测试+类型检查/构建；负责人V02整体验收PASS，反馈见第11节 |
+| N04 | 未关联 StandardMetric 项可查看 | PASS（工程＋负责人实机） | 详情/原图源码核对、正式API与页序测试+类型检查/构建；负责人V02整体验收PASS，反馈见第11节 |
+| N05 | 原始报告入口可达 | PASS（工程＋负责人实机） | 详情/原图源码核对、正式API与页序测试+类型检查/构建；负责人V03整体验收PASS，反馈见第11节 |
+| N06 | 多页原图顺序正确 | PASS（工程＋负责人实机） | 详情/原图源码核对、正式API与页序测试+类型检查/构建；负责人V03整体验收PASS，反馈见第11节 |
+| N07 | 原图可放大查看 | PASS（工程＋负责人实机） | 详情/原图源码核对、正式API与页序测试+类型检查/构建；负责人V03整体验收PASS，反馈见第11节 |
+| N08 | 原图加载失败有错误提示和重试 | PASS（工程） | 详情/原图源码核对、正式API与页序测试+类型检查/构建；非实机 |
+| O01 | 迁移只展示当前用户其它档案 | PASS（工程＋负责人实机） | 详情选择/确认/删除源码核对；duplicate取消继续和删除跳转逻辑测试；负责人V04整体验收PASS，反馈见第11节 |
+| O02 | 迁移前有明确确认 | PASS（工程＋负责人实机） | 详情选择/确认/删除源码核对；duplicate取消继续和删除跳转逻辑测试；负责人V04整体验收PASS，反馈见第11节 |
+| O03 | duplicate 迁移有二次提示 | PASS（工程＋负责人实机） | 详情选择/确认/删除源码核对；duplicate取消继续和删除跳转逻辑测试；负责人V05整体验收PASS，反馈见第11节 |
+| O04 | 用户可取消 duplicate 迁移 | PASS（工程＋负责人实机） | 详情选择/确认/删除源码核对；duplicate取消继续和删除跳转逻辑测试；负责人V05整体验收PASS，反馈见第11节 |
+| O05 | 用户可明确继续 duplicate 迁移 | PASS（工程＋负责人实机） | 详情选择/确认/删除源码核对；duplicate取消继续和删除跳转逻辑测试；负责人V05整体验收PASS，反馈见第11节 |
+| O06 | 迁移成功后详情归属刷新 | PASS（工程＋负责人实机） | 详情选择/确认/删除源码核对；duplicate取消继续和删除跳转逻辑测试；负责人V04整体验收PASS，反馈见第11节 |
+| O07 | 删除必须二次确认 | PASS（工程＋负责人实机） | 详情选择/确认/删除源码核对；duplicate取消继续和删除跳转逻辑测试；负责人V06整体验收PASS，反馈见第11节 |
+| O08 | 删除成功返回列表并刷新 | PASS（工程＋负责人实机） | 详情选择/确认/删除源码核对；duplicate取消继续和删除跳转逻辑测试；负责人V06整体验收PASS，反馈见第11节 |
+| P01 | 首页不把 CONFIRMED 当当前 draft | PASS（工程） | unfinished六状态测试、首页任务过滤、成功report_id路由源码核对 |
+| P02 | 当前 ingestion 只取未完成状态 | PASS（工程） | unfinished六状态测试、首页任务过滤、成功report_id路由源码核对 |
+| P03 | 识别任务记录与正式报告分离 | PASS（工程） | unfinished六状态测试、首页任务过滤、成功report_id路由源码核对 |
+| P04 | Stage 04 commit 后可查看正式报告 | PASS（工程） | unfinished六状态测试、首页任务过滤、成功report_id路由源码核对 |
 | Q01 | Stage 04 commit 幂等仍通过 | PASS（工程/文档） | 原Stage00～04全量pytest；Stage04 PG专项；未改既有业务测试 |
 | Q02 | REVIEW\_PENDING 阻断仍通过 | PASS（工程/文档） | 原Stage00～04全量pytest；Stage04 PG专项；未改既有业务测试 |
 | Q03 | KEEP\_ORIGINAL\_NAME 仍通过 | PASS（工程/文档） | 原Stage00～04全量pytest；Stage04 PG专项；未改既有业务测试 |
@@ -288,12 +294,12 @@ Stage05 PostgreSQL实际场景：历史 OBJECT回填；既有正式报告无需�
 | T03 | Miniapp Build | PASS（工程/文档） | 第7节miniapp实际test/typecheck/build命令结果 |
 | U01 | Admin Typecheck | PASS（工程/文档） | 第7节admin实际typecheck/build命令结果 |
 | U02 | Admin Build | PASS（工程/文档） | 第7节admin实际typecheck/build命令结果 |
-| V01 | 正式报告列表完整流程 | 待人工验收 | 必须负责人真实微信执行；本轮无反馈，不以工程证据替代 |
-| V02 | 正式报告详情 | 待人工验收 | 必须负责人真实微信执行；本轮无反馈，不以工程证据替代 |
-| V03 | 原始报告查看 | 待人工验收 | 必须负责人真实微信执行；本轮无反馈，不以工程证据替代 |
-| V04 | 正式报告迁移 | 待人工验收 | 必须负责人真实微信执行；本轮无反馈，不以工程证据替代 |
-| V05 | 疑似重复迁移 | 待人工验收 | 必须负责人真实微信执行；本轮无反馈，不以工程证据替代 |
-| V06 | 正式报告删除 | 待人工验收 | 必须负责人真实微信执行；本轮无反馈，不以工程证据替代 |
+| V01 | 正式报告列表完整流程 | PASS（负责人实机人工验收） | 负责人本次明确反馈该项真实微信PASS；记录日期2026-10-01，见第11节；非Codex自动验证 |
+| V02 | 正式报告详情 | PASS（负责人实机人工验收） | 负责人本次明确反馈该项真实微信PASS；记录日期2026-10-01，见第11节；非Codex自动验证 |
+| V03 | 原始报告查看 | PASS（负责人实机人工验收） | 负责人本次明确反馈该项真实微信PASS；记录日期2026-10-01，见第11节；非Codex自动验证 |
+| V04 | 正式报告迁移 | PASS（负责人实机人工验收） | 负责人本次明确反馈该项真实微信PASS；记录日期2026-10-01，见第11节；非Codex自动验证 |
+| V05 | 疑似重复迁移 | PASS（负责人实机人工验收） | 负责人本次明确反馈该项真实微信PASS；记录日期2026-10-01，见第11节；非Codex自动验证 |
+| V06 | 正式报告删除 | PASS（负责人实机人工验收） | 负责人本次明确反馈该项真实微信PASS；记录日期2026-10-01，见第11节；非Codex自动验证 |
 | W01 | 未实现我的指标 | PASS（工程/文档） | Git文件范围与新增模型/API/页面核对，无Stage06/07或OCR算法变化 |
 | W02 | 未实现指标历史 | PASS（工程/文档） | Git文件范围与新增模型/API/页面核对，无Stage06/07或OCR算法变化 |
 | W03 | 未实现趋势折线图 | PASS（工程/文档） | Git文件范围与新增模型/API/页面核对，无Stage06/07或OCR算法变化 |
@@ -303,6 +309,6 @@ Stage05 PostgreSQL实际场景：历史 OBJECT回填；既有正式报告无需�
 | W07 | 未实现 MetricAlias 管理 | PASS（工程/文档） | Git文件范围与新增模型/API/页面核对，无Stage06/07或OCR算法变化 |
 | W08 | 未实现 OCR 管理后台业务 | PASS（工程/文档） | Git文件范围与新增模型/API/页面核对，无Stage06/07或OCR算法变化 |
 | W09 | 未修改 OCR 算法规则 | PASS（工程/文档） | Git文件范围与新增模型/API/页面核对，无Stage06/07或OCR算法变化 |
-| X01 | 必要基线与 README 保持一致 | PASS（工程/文档） | README/backend/deploy/本RESULT核对；保留待人工验收和非PASS状态 |
-| X02 | Stage 05 RESULT.md 完整 | PASS（工程/文档） | README/backend/deploy/本RESULT核对；保留待人工验收和非PASS状态 |
-| X03 | 人工验收未完成前不得标 PASS | PASS（工程/文档） | README/backend/deploy/本RESULT核对；保留待人工验收和非PASS状态 |
+| X01 | 必要基线与 README 保持一致 | PASS（工程/文档） | README/backend/deploy/本RESULT核对；同步最终PASS及负责人V01～V06记录；工程/人工验证边界分别保留 |
+| X02 | Stage 05 RESULT.md 完整 | PASS（工程/文档） | README/backend/deploy/本RESULT核对；同步最终PASS及负责人V01～V06记录；工程/人工验证边界分别保留 |
+| X03 | 人工验收未完成前不得标 PASS | PASS（工程/文档） | README/backend/deploy/本RESULT核对；同步最终PASS及负责人V01～V06记录；工程/人工验证边界分别保留 |

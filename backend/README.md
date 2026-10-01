@@ -1,4 +1,4 @@
-# Backend（Stage 05 = PASS；Stage 06 待人工验收）
+# Backend（Stage 06 = PASS）
 
 提供健康检查、微信 code 登录、健康档案、COS 原图资产、OCR 任务/持久化队列/独立 Worker，以及 Stage 04 确认和 commit。`0003_ocr` 增加不可变机器快照；`0004_confirmation_report` 增加报告确认字段及 StandardMetric / ConfirmationItem / LabReport / LabResult。识别成功只到 `PENDING_CONFIRMATION`；用户处理全部 REVIEW 并显式 commit 后才生成正式数据。Stage 04 已 PASS。Stage 05 正式报告管理已通过最终自动回归，负责人已确认真实微信 V01～V06 全部 PASS，最终 Stage 05 = PASS（2026-10-01），见 [Stage 05 RESULT](../docs/stages/05-report-management/RESULT.md)。
 
@@ -76,12 +76,12 @@ Stage 04 专项脚本固定执行到 `0004_confirmation_report`，保留全部�
 
 所有接口校验本人ACTIVE档案，不从临时域补数据。未关联StandardMetric结果不聚合；停用主数据的既往历史仍可见。latest/history以正式检验日期/时间及冻结稳定规则排序，result_text主展示；trend只有非空numeric且comparator为NULL/空/=，不解析文本、不换算单位、不重算abnormal。原图入口复用正式报告API。
 
-正常验收/部署环境需 `alembic upgrade head` 并重启API。本轮仅验证临时库，未升级业务库。新增专项命令（backend目录）：
+正常验收/部署环境需 `alembic upgrade head` 并重启API。初版工程验证仅操作临时库，Codex 未升级业务库。最终收尾只修改文档，保留原 PostgreSQL 17 专项证据并重跑必要自动回归。新增专项命令（backend目录）：
 
 ```powershell
 .venv/Scripts/python.exe tests/verify_postgres_metrics.py
 ```
 
-真实PostgreSQL17，两座临时库验证增量/空库升级、并发UNIQUE、六类API权限、旧正式快照保持和迁移删除自然变化；finally删除并核实无残留。新增表/索引与ORM一致，但全库存在已验证的Stage03历史索引差异：migration的ix_ocr_tasks_queue(status,next_attempt_at)与ORM的ix_ocr_tasks_status(status)不一致；不能将全库alembic check记为PASS。本轮验证其升级前后保持相同，未修改OCR或既有migration。
+真实PostgreSQL17，两座临时库验证增量/空库升级、并发UNIQUE、六类API权限、旧正式快照保持和迁移删除自然变化；finally删除并核实无残留。新增表/索引与ORM一致，但全库存在已验证的Stage03历史索引差异：migration的ix_ocr_tasks_queue(status,next_attempt_at)与ORM的ix_ocr_tasks_status(status)不一致；不能将全库alembic check记为PASS。初版专项验证其升级前后保持相同，未修改OCR或既有migration；最终收尾保留这一非阻塞记录。
 
-工程测试结果及负责人真实微信T01～T09清单见 [Stage 06 RESULT](../docs/stages/06-metric-trend/RESULT.md)。Stage 06最终仍为FAIL（待人工验收），Stage 07未实施。
+工程测试结果及负责人真实微信T01～T09人工验收记录见 [Stage 06 RESULT](../docs/stages/06-metric-trend/RESULT.md)。Stage 06最终为PASS（2026-10-01），负责人真实微信T01～T09全部PASS，最终自动回归通过；Stage 03旧索引漂移为非Stage 06阻塞项，Stage 07未实施。

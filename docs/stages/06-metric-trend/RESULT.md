@@ -2,9 +2,9 @@
 
 实施及工程验证日期：2026-10-01。
 
-**Stage 06 = FAIL（工程实现及要求的自动验证通过，待项目负责人真实微信 T01～T09 人工验收）。**
+**Stage 06 = PASS（要求的工程验证通过；项目负责人真实微信 T01～T09 人工验收全部 PASS）。**
 
-T01～T09 尚未收到负责人反馈，均未标记 PASS。按冻结 ACCEPTANCE 的 Z 条件，任意 P0 未完成仍为 FAIL；这与下文各项工程验证通过是不同层面的结论。
+最终收尾日期：2026-10-01。项目负责人在本次收尾指令中明确反馈 T01～T09 逐项 PASS，均记录为“负责人真实微信人工验收 PASS”。结合既有 PostgreSQL 17 验证和本次全部必要自动回归，冻结 ACCEPTANCE 的适用 P0 均满足；Q08 未新增依赖，按冻结条件为 N/A。人工证据来自负责人反馈，未以 Codex 自动验证替代。
 
 ## 1. 实施前基线与范围
 
@@ -12,11 +12,13 @@ T01～T09 尚未收到负责人反馈，均未标记 PASS。按冻结 ACCEPTANCE
 
 依序读取 AGENTS、三个 baseline、Stage 06 PLAN / ACCEPTANCE、Stage 05 RESULT，再读取 DATA_MODEL、API_CONVENTIONS、SYSTEM_ARCHITECTURE 和相关 D-0003/D-0004。核对真实 HealthProfile、StandardMetric、LabReport、LabResult、Stage 04 commit、Stage 05 迁移/删除、migration head、前端页面和依赖后实施。
 
-当前分支 `codex/stage06-metric-trend`。本轮未执行 commit、push 或合并 main，所有新增/修改仍在工作区。
+初版提交为 `b26b588a253e6b8b9c2480f37e790a10ccb65e14`（`stage06 初版提交`）。最终收尾开始时，HEAD 与 `origin/codex/stage06-metric-trend` 均已指向该提交，工作区 clean；本地/远程 main 均为上述 Stage 05 基线，没有未知新增提交。初版已经 commit 并 push，不能再描述为未提交的工作区修改。
+
+本次最终 PASS 收尾为初版之后的独立文档提交，标题 `docs: finalize stage 06 acceptance`，仅修改下列四份文档。该最终提交的完整 SHA 以 `git log -1 --format=%H -- docs/stages/06-metric-trend/RESULT.md` 定位；分支推送、main 合入与远程最终 SHA 以实际 Git 核对和本轮最终汇报为准。
 
 ## 2. 实际修改文件
 
-本轮新增或修改 19 个实现、测试和说明文件；两个已有未跟踪冻结文档不计入本轮修改：
+初版实施新增或修改 19 个实现、测试和说明文件，见下表。初版提交实际包含 21 个文件，另含负责人提供并冻结的 PLAN / ACCEPTANCE；两份冻结文档未由 Codex改写。本次最终收尾只修改 `docs/stages/06-metric-trend/RESULT.md`、根 `README.md`、`backend/README.md`、`docs/stages/06-metric-trend/README.md`，不修改业务代码、测试、migration、PLAN / ACCEPTANCE。
 
 | 范围 | 文件 |
 | --- | --- |
@@ -88,15 +90,15 @@ Stage 05 迁移/硬删除直接改变 LabResult，Stage 06 下一次查询自然
 
 本地 `MetricTrendChart.vue` 以 view/button/scroll-view 绘制折线和独立点，按服务器 points 顺序构造 category-like X 坐标；44px 点选热区、日期/时间标签、横向滑动、选中摘要和报告导航。日期不作为唯一 key，多个同日/同值点不合并。参考范围只在记录摘要展示。
 
-onShow 重取默认档案和真实 APIs，请求版本在 onHide/onUnload 失效，旧列表/详情/分页/Favorite 响应不能写回新页面上下文。页面读取微信/uni-app 字体设置并采用相对字号和可换行内容；大字体实机效果仍待负责人验证。
+onShow 重取默认档案和真实 APIs，请求版本在 onHide/onUnload 失效，旧列表/详情/分页/Favorite 响应不能写回新页面上下文。页面读取微信/uni-app 字体设置并采用相对字号和可换行内容。负责人已反馈冻结 T01～T09 全部 PASS；未提供独立字体档位、设备或版本明细，不补造此类执行记录。
 
 复用统一 request 层、原生导航、按钮和 scroll-view；从历史/趋势进入 Stage 05 正式报告详情，再复用其原图入口。不另建原图/COS 实现。
 
 **新增依赖：无。** package.json 和 lockfile 未修改；未升级 uni-app/Vue/Vite 或引入图表/Dashboard 框架。
 
-## 7. 实际自动验证结果
+## 7. 初版实施自动验证结果
 
-全部命令于本轮执行；既有后端66项、小程序21项完整保留，无删除/skip/弱化：
+下表为初版实施时实际执行的验证，保留原有 PostgreSQL 17 专项和回归证据；既有后端66项、小程序21项完整保留，无删除/skip/弱化：
 
 | cwd | 命令 | 实际结果 |
 | --- | --- | --- |
@@ -119,12 +121,29 @@ PostgreSQL Stage 06 验证包括：升级前已有正式快照完整保持；NUL
 
 Stage 00～05 回归还由全量 pytest/miniapp tests 覆盖正式列表/详情/原图、commit幂等、REVIEW_PENDING、KEEP_ORIGINAL_NAME、纯手工报告、疑似重复、机器快照不可变、完整删除和FileCleanup。历史阶段人工 PASS 事实保持；没有把它们作为本轮 T01～T09 的人工证据。
 
+### 7.1 最终收尾自动回归（2026-10-01）
+
+| cwd | 本次重新执行命令/核对 | 实际结果 |
+| --- | --- | --- |
+| backend | `.venv/Scripts/python.exe -m pytest -q` | PASS，84 passed，0 skipped |
+| backend | `.venv/Scripts/ruff.exe check . --no-cache` | PASS，All checks passed |
+| miniapp | `pnpm test` | PASS，29 tests，0 skipped |
+| miniapp | `pnpm typecheck` | PASS |
+| miniapp | `pnpm build:mp-weixin` | PASS，微信产物构建完成 |
+| admin-web | `pnpm typecheck` | PASS |
+| admin-web | `pnpm build` | PASS |
+| root | `git diff --check` | PASS |
+| backend | `.venv/Scripts/alembic.exe heads` | 唯一 `0006_metric_trend (head)` |
+| backend | 独立只读查询 server_version / pg_database | PostgreSQL 17.11；`checkup_stage0%` 临时测试库剩余 `[]` |
+
+已对照初版 `b26b588` 核对：本次没有业务代码、migration、测试或 PostgreSQL 验证脚本变更，之前 Stage 03～06 的 PostgreSQL 17 验证事实仍有效。按最终收尾范围未重复运行全部 PostgreSQL 专项；本次表格中的服务器版本及残留库核查为重新执行的只读验证，不冒充专项重跑。
+
 ## 8. 设计偏差与已知问题
 
 - Stage 06 产品/数据语义无 PLAN / ACCEPTANCE 设计偏差。API采用等价 is_favorite 字段；本地图表为冻结允许方案。
-- **既有 Stage 03 schema 差异**：0003 migration 创建 `ix_ocr_tasks_queue(status,next_attempt_at)`，当前 ORM 是 `ix_ocr_tasks_status(status)`。额外执行的全库 `alembic check` 因这两项历史差异失败，不能宣称全库零漂移。新专项分别比较0005升级前和0006升级后，严格证明除本阶段新表/索引外仅这两项既有差异，且升级前后相同；任何其它差异会失败。没有修改 OCR ORM、旧migration或删掉既有断言来消除差异。此项留待独立工程维护。
-- 真实微信 T01～T09、点选/滑动、档案切换、字体档位和原图链路尚未由负责人验收；构建和纯函数/接口测试不能替代实机。
-- 本轮未执行目标业务库升级、部署、真实微信操作或真实COS删除；没有生产/上线证据。
+- **既有 Stage 03 schema 差异**：0003 migration 创建 `ix_ocr_tasks_queue(status,next_attempt_at)`，当前 ORM 是 `ix_ocr_tasks_status(status)`。额外执行的全库 `alembic check` 因这两项历史差异失败，不能宣称全库零漂移。新专项分别比较0005升级前和0006升级后，严格证明除本阶段新表/索引外仅这两项既有差异，且升级前后相同；任何其它差异会失败。没有修改 OCR ORM、旧migration或删掉既有断言来消除差异。此项为非 Stage 06 阻塞项，留待独立工程维护；本轮不修复。
+- 冻结要求的真实微信 T01～T09 已由项目负责人完成并逐项反馈 PASS；对应指标、交互和报告/原图链路人工验收已满足。未提供设备、版本、独立字体档位或生产部署明细，不推断额外验证。
+- Codex 初版实施及本次收尾未执行目标业务库升级、部署、真实微信操作或真实 COS 删除；真实微信人工操作按负责人反馈归属。Stage PASS 不额外代表生产部署或上线验证。
 - 保留已有非阻塞警告：FastAPI/Starlette TestClient弃用、Node模块类型提示、Admin大产物，以及uni-app更新提示；未为消除警告升级依赖。
 - 验证阶段修正了新测试缺失原图夹具、字体字段类型兼容、迁移测试必须显式重复确认和新代码Ruff格式问题，最终要求的测试均通过。
 
@@ -132,29 +151,29 @@ Stage 00～05 回归还由全量 pytest/miniapp tests 覆盖正式列表/详情/
 
 未实现 StandardMetric/MetricAlias 管理API/UI、MetricAlias模型、指标种子扩充、OCR算法或AUTO/REVIEW修改、历史正式结果重关联/回填、正式结果编辑、冗余Trend/History/Latest表或医学解释。
 
-下一步只进行 Stage 06 实机验收及必要修复。T01～T09未全部PASS前不标Stage 06最终PASS，不进入Stage 07。将来既往正式数据重关联需独立设计，不能靠同名猜测批量UPDATE。
+Stage 06 最终 PASS 后，本轮仅完成文档和 Git 收尾，未进入 Stage 07。Stage 07 仍需独立边界确认及冻结 PLAN / ACCEPTANCE 后另行授权；既往正式数据重关联需独立设计，不能靠同名猜测批量 UPDATE。
 
-## 10. 项目负责人 T01～T09 操作清单
+## 10. 项目负责人真实微信 T01～T09 人工验收记录
 
-仅使用合成/脱敏测试报告。先在验收环境升级至0006、重启API，将本轮微信构建产物导入开发者工具并在真实微信运行。准备两个本人管理的档案；选择当前12个标准指标中已有的 WBC/HGB/ALT，通过既有确认流程选择标准指标并 commit，未 commit 数据不会进入本轮视角。
+证据来源：项目负责人于 2026-10-01 在最终收尾指令中明确声明真实微信人工验收已全部完成，并逐项反馈 T01～T09 PASS。下表保留对应验收内容，结果均归属“负责人真实微信人工验收 PASS”，不是 Codex 实机执行或自动测试代验。
 
 | 编号 | 操作与核对 | 当前结果 |
 | --- | --- | --- |
-| T01 | 首页→检验报告→我的指标，核对当前档案/正式卡片/latest；切换另一档案返回，核对数据完全切换且无旧请求闪回 | 待负责人 |
-| T02 | 某标准指标准备≥3条正式历史，核对latest/日期/单位/各自参考和异常标记；从历史进入报告及原图 | 待负责人 |
-| T03 | 同日≥2份同标准指标报告，核对两条history、两个独立trend点及各自报告，无平均/覆盖 | 待负责人 |
-| T04 | 准备非数值及<、>、≤或≥结果，核对完整history、latest可显示真实新结果、普通图不画阈值或非数值点；无点指标显示正常空状态 | 待负责人 |
-| T05 | ≥3个同单位确定数值，核对折线顺序/日期；点选查看正式result_text/本条参考，进入正确报告 | 待负责人 |
-| T06 | 同标准指标准备≥2种单位，核对仍为一个详情、历史统一、单位可切换、默认最近可绘制序列、不混线不换算 | 待负责人 |
-| T07 | 关注→返回列表确认优先→再进详情取消；切换另一档案核对关注独立 | 待负责人 |
-| T08 | 记录源/目标latest/history/trend及Favorite；在Stage 05迁移测试报告，必要时明确重复确认；返回核对自然归属变化、Favorite不随报告迁移 | 待负责人 |
-| T09 | 依次测试删除非最新、最新及最后一条报告，核对history/点减少、latest回退、最后指标退出列表，其它报告/指标不受影响 | 待负责人 |
+| T01 | 首页→检验报告→我的指标，核对当前档案/正式卡片/latest；切换另一档案返回，核对数据完全切换且无旧请求闪回 | 负责人真实微信人工验收 PASS |
+| T02 | 某标准指标准备≥3条正式历史，核对latest/日期/单位/各自参考和异常标记；从历史进入报告及原图 | 负责人真实微信人工验收 PASS |
+| T03 | 同日≥2份同标准指标报告，核对两条history、两个独立trend点及各自报告，无平均/覆盖 | 负责人真实微信人工验收 PASS |
+| T04 | 准备非数值及<、>、≤或≥结果，核对完整history、latest可显示真实新结果、普通图不画阈值或非数值点；无点指标显示正常空状态 | 负责人真实微信人工验收 PASS |
+| T05 | ≥3个同单位确定数值，核对折线顺序/日期；点选查看正式result_text/本条参考，进入正确报告 | 负责人真实微信人工验收 PASS |
+| T06 | 同标准指标准备≥2种单位，核对仍为一个详情、历史统一、单位可切换、默认最近可绘制序列、不混线不换算 | 负责人真实微信人工验收 PASS |
+| T07 | 关注→返回列表确认优先→再进详情取消；切换另一档案核对关注独立 | 负责人真实微信人工验收 PASS |
+| T08 | 记录源/目标latest/history/trend及Favorite；在Stage 05迁移测试报告，必要时明确重复确认；返回核对自然归属变化、Favorite不随报告迁移 | 负责人真实微信人工验收 PASS |
+| T09 | 依次测试删除非最新、最新及最后一条报告，核对history/点减少、latest回退、最后指标退出列表，其它报告/指标不受影响 | 负责人真实微信人工验收 PASS |
 
-请逐项反馈 PASS/FAIL 及失败现象。暂未填入设备、版本或任何未提供的人工执行记录。
+T01～T09 全部 PASS。负责人未提供设备、微信版本等明细，本记录不补造未提供的执行信息。
 
 ## 11. 冻结验收逐项证据
 
-下表的“工程PASS”只指已执行测试、PostgreSQL验证或明确源码/构建核对。UI/真实交互项目明确保留实机待验；Q08因无新增依赖为N/A。负责人T01～T09均未执行，完整Stage最终状态仍为FAIL。
+下表的“工程PASS”只指已执行测试、PostgreSQL 验证或明确源码/构建核对；UI/真实交互证据由对应 T01～T09 的负责人真实微信 PASS 反馈补齐。Q08 因无新增依赖为 N/A；其余适用 P0 均 PASS，Stage 06 最终 PASS。自动验证与负责人证据分别归属，不扩展为未提供的设备/环境记录。
 
 | 编号 | 验收项 | 本轮状态 | 实际证据与边界 |
 | --- | --- | --- | --- |
@@ -206,8 +225,8 @@ Stage 00～05 回归还由全量 pytest/miniapp tests 覆盖正式列表/详情/
 | E09 | 历史单位信息完整 | 工程PASS | 完整history、独立ID、分页与正式字段断言；Stage05正式报告/原图回归 |
 | E10 | 历史 reference_text 正确 | 工程PASS | 完整history、独立ID、分页与正式字段断言；Stage05正式报告/原图回归 |
 | E11 | 历史 abnormal 直接读取 | 工程PASS | 完整history、独立ID、分页与正式字段断言；Stage05正式报告/原图回归 |
-| E12 | 历史可进入正式报告 | 工程核对通过；实机待验 | 完整history、独立ID、分页与正式字段断言；Stage05正式报告/原图回归 |
-| E13 | 正式报告原图链路复用 | 工程核对通过；实机待验 | 完整history、独立ID、分页与正式字段断言；Stage05正式报告/原图回归 |
+| E12 | 历史可进入正式报告 | PASS（工程＋负责人实机） | 完整history、独立ID、分页与正式字段断言；Stage05正式报告/原图回归；负责人实机T02 PASS |
+| E13 | 正式报告原图链路复用 | PASS（工程＋负责人实机） | 完整history、独立ID、分页与正式字段断言；Stage05正式报告/原图回归；负责人实机T02 PASS |
 | F01 | 只有 result_numeric 非空才可能画 | 工程PASS | 七类非等号comparator及numeric NULL/0/=测试；PG17同日点/正序；图表身份测试 |
 | F02 | 普通数值 comparator NULL 可画 | 工程PASS | 七类非等号comparator及numeric NULL/0/=测试；PG17同日点/正序；图表身份测试 |
 | F03 | 普通数值 comparator 空串可画 | 工程PASS | 七类非等号comparator及numeric NULL/0/=测试；PG17同日点/正序；图表身份测试 |
@@ -224,8 +243,8 @@ Stage 00～05 回归还由全量 pytest/miniapp tests 覆盖正式列表/详情/
 | F14 | 趋势正序 | 工程PASS | 七类非等号comparator及numeric NULL/0/=测试；PG17同日点/正序；图表身份测试 |
 | F15 | NULL examination_time 不虚构时间 | 工程PASS | 七类非等号comparator及numeric NULL/0/=测试；PG17同日点/正序；图表身份测试 |
 | F16 | 图表坐标来自已持久化 numeric | 工程PASS | 七类非等号comparator及numeric NULL/0/=测试；PG17同日点/正序；图表身份测试 |
-| F17 | 用户点值仍显示 result_text | 工程核对通过；实机待验 | 七类非等号comparator及numeric NULL/0/=测试；PG17同日点/正序；图表身份测试 |
-| F18 | 趋势点可回正式报告 | 工程核对通过；实机待验 | 七类非等号comparator及numeric NULL/0/=测试；PG17同日点/正序；图表身份测试 |
+| F17 | 用户点值仍显示 result_text | PASS（工程＋负责人实机） | 七类非等号comparator及numeric NULL/0/=测试；PG17同日点/正序；图表身份测试；负责人实机T05 PASS |
+| F18 | 趋势点可回正式报告 | PASS（工程＋负责人实机） | 七类非等号comparator及numeric NULL/0/=测试；PG17同日点/正序；图表身份测试；负责人实机T03/T05 PASS |
 | G01 | unit_normalized 优先 | 工程PASS | 五种单位、trim、无单位哨兵隔离、原单位回退测试；PG17分组与默认series |
 | G02 | normalized 缺失回退 original | 工程PASS | 五种单位、trim、无单位哨兵隔离、原单位回退测试；PG17分组与默认series |
 | G03 | 两者都缺失进入“无单位”序列 | 工程PASS | 五种单位、trim、无单位哨兵隔离、原单位回退测试；PG17分组与默认series |
@@ -233,8 +252,8 @@ Stage 00～05 回归还由全量 pytest/miniapp tests 覆盖正式列表/详情/
 | G05 | 不进行跨单位换算 | 工程PASS | 五种单位、trim、无单位哨兵隔离、原单位回退测试；PG17分组与默认series |
 | G06 | 不做单位语义猜测 | 工程PASS | 五种单位、trim、无单位哨兵隔离、原单位回退测试；PG17分组与默认series |
 | G07 | 同 StandardMetric 多单位仍只有一个详情 | 工程PASS | 五种单位、trim、无单位哨兵隔离、原单位回退测试；PG17分组与默认series |
-| G08 | 多单位可切换 | 工程核对通过；实机待验 | 五种单位、trim、无单位哨兵隔离、原单位回退测试；PG17分组与默认series |
-| G09 | 默认选择最近可绘制序列 | 工程核对通过；实机待验 | 五种单位、trim、无单位哨兵隔离、原单位回退测试；PG17分组与默认series |
+| G08 | 多单位可切换 | PASS（工程＋负责人实机） | 五种单位、trim、无单位哨兵隔离、原单位回退测试；PG17分组与默认series；负责人实机T06 PASS |
+| G09 | 默认选择最近可绘制序列 | PASS（工程＋负责人实机） | 五种单位、trim、无单位哨兵隔离、原单位回退测试；PG17分组与默认series；负责人实机T06 PASS |
 | G10 | 历史不按单位拆散 | 工程PASS | 五种单位、trim、无单位哨兵隔离、原单位回退测试；PG17分组与默认series |
 | H01 | 不创建 StandardMetric 全局参考范围 | 工程PASS | 本条reference/abnormal断言；既有abnormalLabel回归；页面无全局正常带或医学解释 |
 | H02 | 不画固定全局正常带 | 工程PASS | 本条reference/abnormal断言；既有abnormalLabel回归；页面无全局正常带或医学解释 |
@@ -260,7 +279,7 @@ Stage 00～05 回归还由全量 pytest/miniapp tests 覆盖正式列表/详情/
 | J05 | Favorite PUT 跨用户隔离 | 工程PASS | 六类接口/ACTIVE/不存在资源同错误测试；页面guard慢响应与失效测试 |
 | J06 | Favorite DELETE 跨用户隔离 | 工程PASS | 六类接口/ACTIVE/不存在资源同错误测试；页面guard慢响应与失效测试 |
 | J07 | 无资源存在性泄露 | 工程PASS | 六类接口/ACTIVE/不存在资源同错误测试；页面guard慢响应与失效测试 |
-| J08 | 切换默认 HealthProfile 后页面刷新 | 工程核对通过；实机待验 | 六类接口/ACTIVE/不存在资源同错误测试；页面guard慢响应与失效测试 |
+| J08 | 切换默认 HealthProfile 后页面刷新 | PASS（工程＋负责人实机） | 六类接口/ACTIVE/不存在资源同错误测试；页面guard慢响应与失效测试；负责人实机T01 PASS |
 | J09 | 旧 profile 响应不能覆盖新 profile | 工程PASS | 六类接口/ACTIVE/不存在资源同错误测试；页面guard慢响应与失效测试 |
 | K01 | 迁移后源 profile 指标历史减少 | 工程PASS | API及PG17迁移/删除/最后结果/dormant/其它报告测试；COS失败时指标立即变化 |
 | K02 | 迁移后目标 profile 指标历史增加 | 工程PASS | API及PG17迁移/删除/最后结果/dormant/其它报告测试；COS失败时指标立即变化 |
@@ -284,34 +303,34 @@ Stage 00～05 回归还由全量 pytest/miniapp tests 覆盖正式列表/详情/
 | L10 | 普通 API 不返回永久 COS URL | 工程PASS | 六条route、错误/request_id/响应隐私和日志断言；沿用统一安全日志 |
 | L11 | 普通 API 不返回 OCR 全文 | 工程PASS | 六条route、错误/request_id/响应隐私和日志断言；沿用统一安全日志 |
 | L12 | 日志不记录完整 history/trend 医疗数组 | 工程PASS | 六条route、错误/request_id/响应隐私和日志断言；沿用统一安全日志 |
-| M01 | 从报告视角可进入“我的指标” | 工程核对通过；实机待验 | 列表源码/路径/分页/guard/font测试与微信构建；实机归入T01/T02/T07 |
-| M02 | 可从“我的指标”回到检验报告 | 工程核对通过；实机待验 | 列表源码/路径/分页/guard/font测试与微信构建；实机归入T01/T02/T07 |
-| M03 | 当前 HealthProfile 清晰展示 | 工程核对通过；实机待验 | 列表源码/路径/分页/guard/font测试与微信构建；实机归入T01/T02/T07 |
-| M04 | 支持切换健康档案入口 | 工程核对通过；实机待验 | 列表源码/路径/分页/guard/font测试与微信构建；实机归入T01/T02/T07 |
-| M05 | loading | 工程核对通过；实机待验 | 列表源码/路径/分页/guard/font测试与微信构建；实机归入T01/T02/T07 |
-| M06 | empty | 工程核对通过；实机待验 | 列表源码/路径/分页/guard/font测试与微信构建；实机归入T01/T02/T07 |
-| M07 | error/retry | 工程核对通过；实机待验 | 列表源码/路径/分页/guard/font测试与微信构建；实机归入T01/T02/T07 |
-| M08 | 加载更多 | 工程核对通过；实机待验 | 列表源码/路径/分页/guard/font测试与微信构建；实机归入T01/T02/T07 |
-| M09 | 指标卡片展示最新正式 result_text | 工程核对通过；实机待验 | 列表源码/路径/分页/guard/font测试与微信构建；实机归入T01/T02/T07 |
-| M10 | 指标卡片展示日期/单位/abnormal 提示 | 工程核对通过；实机待验 | 列表源码/路径/分页/guard/font测试与微信构建；实机归入T01/T02/T07 |
-| M11 | Favorite 状态可见 | 工程核对通过；实机待验 | 列表源码/路径/分页/guard/font测试与微信构建；实机归入T01/T02/T07 |
-| M12 | 点击进入指标详情 | 工程核对通过；实机待验 | 列表源码/路径/分页/guard/font测试与微信构建；实机归入T01/T02/T07 |
-| N01 | StandardMetric 名称/code 正确 | 工程核对通过；实机待验 | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；实机归入T02-T09 |
-| N02 | 最新结果正确 | 工程核对通过；实机待验 | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；实机归入T02-T09 |
-| N03 | Favorite 可关注 | 工程核对通过；实机待验 | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；实机归入T02-T09 |
-| N04 | Favorite 可取消 | 工程核对通过；实机待验 | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；实机归入T02-T09 |
-| N05 | 数值 trend 正常显示 | 工程核对通过；实机待验 | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；实机归入T02-T09 |
-| N06 | 多单位可切换 | 工程核对通过；实机待验 | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；实机归入T02-T09 |
-| N07 | 无可绘制点显示正常空状态 | 工程核对通过；实机待验 | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；实机归入T02-T09 |
-| N08 | 同日多点不合并 | 工程核对通过；实机待验 | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；实机归入T02-T09 |
-| N09 | 点击 trend point 可查看真实结果摘要 | 工程核对通过；实机待验 | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；实机归入T02-T09 |
-| N10 | trend point 可打开正式报告 | 工程核对通过；实机待验 | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；实机归入T02-T09 |
-| N11 | 完整历史列表正常显示 | 工程核对通过；实机待验 | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；实机归入T02-T09 |
-| N12 | 非数值历史正常显示 | 工程核对通过；实机待验 | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；实机归入T02-T09 |
-| N13 | comparator 历史正常显示 | 工程核对通过；实机待验 | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；实机归入T02-T09 |
-| N14 | 历史项可打开正式报告 | 工程核对通过；实机待验 | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；实机归入T02-T09 |
-| N15 | 报告原图继续可查看 | 工程核对通过；实机待验 | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；实机归入T02-T09 |
-| N16 | 不显示自动医学解释 | 工程核对通过；实机待验 | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；实机归入T02-T09 |
+| M01 | 从报告视角可进入“我的指标” | PASS（工程＋负责人实机） | 列表源码/路径/分页/guard/font测试与微信构建；负责人实机T01/T02/T07 PASS |
+| M02 | 可从“我的指标”回到检验报告 | PASS（工程＋负责人实机） | 列表源码/路径/分页/guard/font测试与微信构建；负责人实机T01/T02/T07 PASS |
+| M03 | 当前 HealthProfile 清晰展示 | PASS（工程＋负责人实机） | 列表源码/路径/分页/guard/font测试与微信构建；负责人实机T01/T02/T07 PASS |
+| M04 | 支持切换健康档案入口 | PASS（工程＋负责人实机） | 列表源码/路径/分页/guard/font测试与微信构建；负责人实机T01/T02/T07 PASS |
+| M05 | loading | PASS（工程＋负责人实机） | 列表源码/路径/分页/guard/font测试与微信构建；负责人实机T01/T02/T07 PASS |
+| M06 | empty | PASS（工程＋负责人实机） | 列表源码/路径/分页/guard/font测试与微信构建；负责人实机T01/T02/T07 PASS |
+| M07 | error/retry | PASS（工程＋负责人实机） | 列表源码/路径/分页/guard/font测试与微信构建；负责人实机T01/T02/T07 PASS |
+| M08 | 加载更多 | PASS（工程＋负责人实机） | 列表源码/路径/分页/guard/font测试与微信构建；负责人实机T01/T02/T07 PASS |
+| M09 | 指标卡片展示最新正式 result_text | PASS（工程＋负责人实机） | 列表源码/路径/分页/guard/font测试与微信构建；负责人实机T01/T02/T07 PASS |
+| M10 | 指标卡片展示日期/单位/abnormal 提示 | PASS（工程＋负责人实机） | 列表源码/路径/分页/guard/font测试与微信构建；负责人实机T01/T02/T07 PASS |
+| M11 | Favorite 状态可见 | PASS（工程＋负责人实机） | 列表源码/路径/分页/guard/font测试与微信构建；负责人实机T01/T02/T07 PASS |
+| M12 | 点击进入指标详情 | PASS（工程＋负责人实机） | 列表源码/路径/分页/guard/font测试与微信构建；负责人实机T01/T02/T07 PASS |
+| N01 | StandardMetric 名称/code 正确 | PASS（工程＋负责人实机） | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；负责人实机T02～T09 PASS |
+| N02 | 最新结果正确 | PASS（工程＋负责人实机） | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；负责人实机T02～T09 PASS |
+| N03 | Favorite 可关注 | PASS（工程＋负责人实机） | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；负责人实机T02～T09 PASS |
+| N04 | Favorite 可取消 | PASS（工程＋负责人实机） | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；负责人实机T02～T09 PASS |
+| N05 | 数值 trend 正常显示 | PASS（工程＋负责人实机） | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；负责人实机T02～T09 PASS |
+| N06 | 多单位可切换 | PASS（工程＋负责人实机） | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；负责人实机T02～T09 PASS |
+| N07 | 无可绘制点显示正常空状态 | PASS（工程＋负责人实机） | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；负责人实机T02～T09 PASS |
+| N08 | 同日多点不合并 | PASS（工程＋负责人实机） | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；负责人实机T02～T09 PASS |
+| N09 | 点击 trend point 可查看真实结果摘要 | PASS（工程＋负责人实机） | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；负责人实机T02～T09 PASS |
+| N10 | trend point 可打开正式报告 | PASS（工程＋负责人实机） | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；负责人实机T02～T09 PASS |
+| N11 | 完整历史列表正常显示 | PASS（工程＋负责人实机） | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；负责人实机T02～T09 PASS |
+| N12 | 非数值历史正常显示 | PASS（工程＋负责人实机） | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；负责人实机T02～T09 PASS |
+| N13 | comparator 历史正常显示 | PASS（工程＋负责人实机） | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；负责人实机T02～T09 PASS |
+| N14 | 历史项可打开正式报告 | PASS（工程＋负责人实机） | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；负责人实机T02～T09 PASS |
+| N15 | 报告原图继续可查看 | PASS（工程＋负责人实机） | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；负责人实机T02～T09 PASS |
+| N16 | 不显示自动医学解释 | PASS（工程＋负责人实机） | 详情与本地图表源码、几何/身份/默认单位/导航/Favorite测试与微信构建；负责人实机T02～T09 PASS |
 | O01 | Backend Tests | 工程PASS | 全量pytest 84 passed、0 skipped；原66项保留；Ruff最终PASS |
 | O02 | Backend Ruff | 工程PASS | 全量pytest 84 passed、0 skipped；原66项保留；Ruff最终PASS |
 | O03 | 只正式数据聚合测试 | 工程PASS | 全量pytest 84 passed、0 skipped；原66项保留；Ruff最终PASS |
@@ -362,15 +381,15 @@ Stage 00～05 回归还由全量 pytest/miniapp tests 覆盖正式列表/详情/
 | S08 | Stage 05 原图 preview 仍通过 | 工程PASS | 原Stage00-05全量测试完整保留；Stage03/04/05 PostgreSQL全部原断言通过 |
 | S09 | Stage 05 报告迁移仍通过 | 工程PASS | 原Stage00-05全量测试完整保留；Stage03/04/05 PostgreSQL全部原断言通过 |
 | S10 | Stage 05 报告删除/FileCleanup 仍通过 | 工程PASS | 原Stage00-05全量测试完整保留；Stage03/04/05 PostgreSQL全部原断言通过 |
-| T01 | 我的指标 + HealthProfile 切换 | 待负责人（P0未完成） | 负责人尚未执行/反馈真实微信验收，自动验证未替代 |
-| T02 | 最新结果 + 完整历史 | 待负责人（P0未完成） | 负责人尚未执行/反馈真实微信验收，自动验证未替代 |
-| T03 | 同一天多份报告 | 待负责人（P0未完成） | 负责人尚未执行/反馈真实微信验收，自动验证未替代 |
-| T04 | 非数值与 comparator | 待负责人（P0未完成） | 负责人尚未执行/反馈真实微信验收，自动验证未替代 |
-| T05 | 普通数值趋势 | 待负责人（P0未完成） | 负责人尚未执行/反馈真实微信验收，自动验证未替代 |
-| T06 | 多单位趋势 | 待负责人（P0未完成） | 负责人尚未执行/反馈真实微信验收，自动验证未替代 |
-| T07 | Favorite | 待负责人（P0未完成） | 负责人尚未执行/反馈真实微信验收，自动验证未替代 |
-| T08 | 正式报告迁移后的自然变化 | 待负责人（P0未完成） | 负责人尚未执行/反馈真实微信验收，自动验证未替代 |
-| T09 | 正式报告删除后的自然变化 | 待负责人（P0未完成） | 负责人尚未执行/反馈真实微信验收，自动验证未替代 |
+| T01 | 我的指标 + HealthProfile 切换 | 负责人真实微信人工验收 PASS | 项目负责人2026-10-01最终收尾指令逐项反馈PASS；自动验证未替代 |
+| T02 | 最新结果 + 完整历史 | 负责人真实微信人工验收 PASS | 项目负责人2026-10-01最终收尾指令逐项反馈PASS；自动验证未替代 |
+| T03 | 同一天多份报告 | 负责人真实微信人工验收 PASS | 项目负责人2026-10-01最终收尾指令逐项反馈PASS；自动验证未替代 |
+| T04 | 非数值与 comparator | 负责人真实微信人工验收 PASS | 项目负责人2026-10-01最终收尾指令逐项反馈PASS；自动验证未替代 |
+| T05 | 普通数值趋势 | 负责人真实微信人工验收 PASS | 项目负责人2026-10-01最终收尾指令逐项反馈PASS；自动验证未替代 |
+| T06 | 多单位趋势 | 负责人真实微信人工验收 PASS | 项目负责人2026-10-01最终收尾指令逐项反馈PASS；自动验证未替代 |
+| T07 | Favorite | 负责人真实微信人工验收 PASS | 项目负责人2026-10-01最终收尾指令逐项反馈PASS；自动验证未替代 |
+| T08 | 正式报告迁移后的自然变化 | 负责人真实微信人工验收 PASS | 项目负责人2026-10-01最终收尾指令逐项反馈PASS；自动验证未替代 |
+| T09 | 正式报告删除后的自然变化 | 负责人真实微信人工验收 PASS | 项目负责人2026-10-01最终收尾指令逐项反馈PASS；自动验证未替代 |
 | U01 | 未实现 MetricAlias 数据模型 | 工程PASS | 真实修改范围核对；种子/OCR/旧migration/正式报告服务/admin未修改 |
 | U02 | 未实现 StandardMetric 管理 API/UI | 工程PASS | 真实修改范围核对；种子/OCR/旧migration/正式报告服务/admin未修改 |
 | U03 | 未扩充 StandardMetric 种子库 | 工程PASS | 真实修改范围核对；种子/OCR/旧migration/正式报告服务/admin未修改 |
@@ -381,8 +400,8 @@ Stage 00～05 回归还由全量 pytest/miniapp tests 覆盖正式列表/详情/
 | U08 | 未进行任意跨单位数值换算 | 工程PASS | 真实修改范围核对；种子/OCR/旧migration/正式报告服务/admin未修改 |
 | U09 | 未提供正式 LabResult 编辑 | 工程PASS | 真实修改范围核对；种子/OCR/旧migration/正式报告服务/admin未修改 |
 | U10 | 未大规模重构 UI | 工程PASS | 真实修改范围核对；种子/OCR/旧migration/正式报告服务/admin未修改 |
-| V01 | README/必要技术说明一致 | 工程PASS | README及RESULT核对；工程、人工、Git与部署证据分别记录；Stage06最终FAIL |
-| V02 | Stage 06 RESULT.md 完整 | 工程PASS | README及RESULT核对；工程、人工、Git与部署证据分别记录；Stage06最终FAIL |
-| V03 | 人工验收未完成前不得标 PASS | 工程PASS | README及RESULT核对；工程、人工、Git与部署证据分别记录；Stage06最终FAIL |
+| V01 | README/必要技术说明一致 | 工程PASS | README及RESULT核对；工程、人工、Git与部署证据分别记录；Stage06最终PASS；负责人T01～T09全部PASS |
+| V02 | Stage 06 RESULT.md 完整 | 工程PASS | README及RESULT核对；工程、人工、Git与部署证据分别记录；Stage06最终PASS；负责人T01～T09全部PASS |
+| V03 | 人工验收未完成前不得标 PASS | 工程PASS | README及RESULT核对；工程、人工、Git与部署证据分别记录；Stage06最终PASS；负责人T01～T09全部PASS |
 
-最终判定：Stage 06 = FAIL（要求的工程验证通过；真实微信T01～T09待负责人；未进入Stage 07）。
+最终判定：Stage 06 = PASS（全部适用 P0 满足；要求的工程验证与最终自动回归通过；负责人真实微信 T01～T09 全部 PASS；Q08 按条件 N/A；未进入 Stage 07）。

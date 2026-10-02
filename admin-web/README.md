@@ -1,4 +1,4 @@
-# Admin Web（Stage 07：等待人工验收）
+# Admin Web（Stage 07 = PASS）
 
 Vue 3 + Vite + TypeScript + Element Plus + Vue Router。独立登录、标准指标、别名、OCR 指标问题和只读任务页。没有新增依赖。
 
@@ -14,10 +14,11 @@ Vue 3 + Vite + TypeScript + Element Plus + Vue Router。独立登录、标准指
 .venv/Scripts/python.exe -c "from getpass import getpass; from app.core.admin_auth import password_hash; print(password_hash(getpass('Admin password: ')))"
 ```
 
-在验收目标环境执行 `.venv/Scripts/alembic.exe upgrade head` 到 `0007_standard_metric_admin` 并重启 API。工程验证只迁移 UUID 临时测试库，没有升级业务库或配置真实管理员。
+在验收目标环境执行 `.venv/Scripts/alembic.exe upgrade head` 到 `0007_standard_metric_admin` 并重启 API。自动回归只迁移 UUID 临时测试库；负责人已完成真实 Admin / 微信验收。
 
 ```powershell
 pnpm install
+pnpm test
 pnpm typecheck
 pnpm dev --host 127.0.0.1
 pnpm build
@@ -36,4 +37,4 @@ Token 存在当前 tab 的 sessionStorage，有效期 8 小时；请求统一处
 
 普通用户 Token 不能调用 Admin API；Admin Token 不能访问用户业务数据 API。pending 引用阻止停用。Alias 只影响未来首次确认与搜索，REVIEW 仍需人工确认，旧工作区和正式历史不回填。无物理删除、OCR 重跑或算法配置入口。
 
-负责人执行 [ACCEPTANCE T01～T13](../docs/stages/07-admin/ACCEPTANCE.md) 并反馈 PASS/FAIL。工程结果见 [RESULT](../docs/stages/07-admin/RESULT.md)；构建不能替代真实 Admin Web / 微信人工验收。
+**Stage 07 = PASS（2026-10-03）**。负责人真实人工验收 [T01～T13](../docs/stages/07-admin/ACCEPTANCE.md) 全部 PASS，含 T06/T11/T13 修复后复验；工程与人工证据见 [RESULT](../docs/stages/07-admin/RESULT.md)。所有现有管理时间列使用统一 Asia/Shanghai formatter，格式 YYYY-MM-DD HH:mm:ss，空值显示“—”；Backend/数据库继续保存 UTC。

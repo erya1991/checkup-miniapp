@@ -29,9 +29,9 @@ checkup-miniapp/
 
 ## 当前阶段
 
-Stage 00～06 已验收通过。**Stage 04 = PASS**，已完成人工确认工作区、报告信息确认、AUTO/REVIEW 处理、StandardMetric 选择、手工补项/纯手工兜底、疑似重复提示，以及事务安全、幂等的正式 `LabReport / LabResult` 生成。项目负责人已在真实微信小程序中完成 W01～W04 人工验收，逐项证据见 [Stage 04 RESULT](docs/stages/04-confirmation-report/RESULT.md)。
+Stage 00～07 已验收通过。**Stage 04 = PASS**，已完成人工确认工作区、报告信息确认、AUTO/REVIEW 处理、StandardMetric 选择、手工补项/纯手工兜底、疑似重复提示，以及事务安全、幂等的正式 `LabReport / LabResult` 生成。项目负责人已在真实微信小程序中完成 W01～W04 人工验收，逐项证据见 [Stage 04 RESULT](docs/stages/04-confirmation-report/RESULT.md)。
 
-OCR 成功只到 `PENDING_CONFIRMATION`，必须经过用户人工确认和最终 commit；只有 commit 后的 `LabReport / LabResult` 才是正式健康数据。**Stage 05 = PASS（2026-10-01）**，正式报告管理已实现并通过最终自动回归，负责人已确认真实微信 V01～V06 全部 PASS。正式列表/详情仅查询 LabReport / LabResult；支持原图、整份档案迁移、完整硬删除和持久化 COS prefix 清理。Stage 06 已正式 PASS，Stage 07 自动验证通过、等待人工验收，Stage 05 证据见 [Stage 05 RESULT](docs/stages/05-report-management/RESULT.md)。
+OCR 成功只到 `PENDING_CONFIRMATION`，必须经过用户人工确认和最终 commit；只有 commit 后的 `LabReport / LabResult` 才是正式健康数据。**Stage 05 = PASS（2026-10-01）**，正式报告管理已实现并通过最终自动回归，负责人已确认真实微信 V01～V06 全部 PASS。正式列表/详情仅查询 LabReport / LabResult；支持原图、整份档案迁移、完整硬删除和持久化 COS prefix 清理。Stage 06 已正式 PASS，Stage 07 = PASS，Stage 05 证据见 [Stage 05 RESULT](docs/stages/05-report-management/RESULT.md)。
 
 ## 本地运行
 
@@ -121,8 +121,8 @@ Stage 05 运行补充（在 `backend/`）：
 
 ## Stage 07 标准指标 / 别名 / OCR 轻量管理
 
-**AUTOMATED PASS / WAITING MANUAL ACCEPTANCE（2026-10-01）**。StandardMetric 创建、name/category 编辑、停用/恢复，MetricAlias 管理、Alias 搜索和首次 Confirmation exact 预关联，以及 OCR 指标问题和只读任务页已实现。code、Alias 目标创建后只读；pending 引用阻止停用，既有历史不隐藏、不回填。REVIEW 仍需人工确认，冻结 OCR runtime / Pipeline version / Stage 03 migration drift 均未修改。
+**Stage 07 = PASS（2026-10-03）**。StandardMetric 创建、name/category 编辑、停用/恢复，MetricAlias 管理、Alias 搜索和首次 Confirmation exact 预关联，以及 OCR 指标问题和只读任务页已实现。code、Alias 目标创建后只读；pending 引用阻止停用，既有历史不隐藏、不回填。REVIEW 仍需人工确认，冻结 OCR runtime / Pipeline version / Stage 03 migration drift 均未修改。
 
-新增 `0007_standard_metric_admin`（前置0006），仅 category、metric_aliases 及其约束/索引；12项seed保留。未迁移业务库、配置真实管理员或部署。验收前需在目标环境升级 head、配置独立管理员、重启 API / Admin，步骤见 [Admin README](admin-web/README.md)。
+新增 `0007_standard_metric_admin`（前置0006），仅 category、metric_aliases 及其约束/索引；12项seed保留。工程回归仅操作隔离测试库。其它目标环境需升级 head、配置独立管理员、重启 API / OCR Worker / Admin，步骤见 [Admin README](admin-web/README.md)。
 
-后端106项、小程序29项、Ruff、两端typecheck、微信构建与Admin build通过。PG17 Stage 07 专项及 Stage 03～06 原专项通过，临时库无残留；详情见 [RESULT](docs/stages/07-admin/RESULT.md)。负责人真实 Admin Web / 微信 [T01～T13](docs/stages/07-admin/ACCEPTANCE.md) 全部待验，Stage 07 尚未最终 PASS。
+最终回归：后端113项、小程序32项、Admin 7项、Ruff、两端typecheck、微信构建与Admin build通过。PG17 Stage 07 专项及 Stage 03～06 原专项通过，临时库无残留；详情见 [RESULT](docs/stages/07-admin/RESULT.md)。负责人真实 Admin Web / 微信 [T01～T13](docs/stages/07-admin/ACCEPTANCE.md) 全部 PASS，包含 T06 canonical 展示、T11 产品 UNMATCHED adapter 和 T13 北京时间展示修复后复验。历史机器快照未修改；T11 使用新 ingestion / OCR task 复验。本轮不进入 Stage 08。

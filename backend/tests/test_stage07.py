@@ -4,13 +4,15 @@ from types import SimpleNamespace
 
 import jwt
 import pytest
-from sqlalchemy import select
+from sqlalchemy import event, select
 from sqlalchemy.exc import IntegrityError
 from test_stage02 import headers, login, profile
 from test_stage04 import client as stage04_client
 from test_stage04 import machine_snapshot, new_report, old_ocr, patch, report_info, workspace
 from test_stage06 import favorite, get, metric_id, saved
 
+from app import confirmation as confirmation_service
+from app import ocr_worker
 from app.core import admin_auth
 from app.core.admin_auth import password_hash, verify_password
 from app.metric_identity import normalize_name, resolve_exact
@@ -21,6 +23,8 @@ from app.models import (
     OcrResultItem,
     OcrTask,
 )
+from app.ocr_pipeline import map_row
+from app.ocr_queue import claim
 
 
 @pytest.fixture
@@ -250,15 +254,64 @@ def test_resolver_review_auto_missing_code_keep_original_and_snapshot(client):
     before = machine_snapshot(factory, task)
     items = workspace(api, owner, path)["items"]
     assert [i["standard_metric_id"] for i in items] == [metric_id(factory, code) for code in ("AST", "ALT", "AST", "ALT")]
+    assert [i["standard_metric"]["code"] for i in items] == ["AST", "ALT", "AST", "ALT"]
+    assert items[0]["standard_metric"] == {"id": metric_id(factory, "AST"), "code": "AST",
+                                            "name": "天门冬氨酸氨基转移酶", "status": "ACTIVE"}
     assert [i["review_status"] for i in items] == ["PENDING", "PENDING", "PENDING", "RESOLVED"]
     assert items[0]["resolution"] is None
     report_info(api, owner, path)
     assert api.post(path + "/commit", headers=headers(owner)).json()["code"] == "REVIEW_PENDING"
     for item in items[:3]:
-        assert patch(api, owner, path, item["id"], resolution="KEEP_ORIGINAL_NAME").status_code == 200
+        response = patch(api, owner, path, item["id"], resolution="KEEP_ORIGINAL_NAME")
+        assert response.status_code == 200
+        cleared = next(i for i in response.json()["items"] if i["id"] == item["id"])
+        assert cleared["standard_metric_id"] is None and cleared["standard_metric"] is None
     assert api.post(path + "/commit", headers=headers(owner)).status_code == 200
     assert machine_snapshot(factory, task) == before
     assert [r["standard_metric_id"] for r in snapshot(factory, LabResult)].count(None) == 3
+
+
+def test_workspace_canonical_display_is_batch_loaded_without_recomputing(client, monkeypatch):
+    api, factory = client
+    auth = admin(api)
+    owner = login(api, "canonical-display07")
+    report, path = new_report(api, owner, profile(api, owner)["id"])
+    task = old_ocr(factory, report["id"], decisions=("FINAL_REVIEW",) * 4,
+                   codes=["ALT", "AST", "ALT", None])
+    first = workspace(api, owner, path)
+    assert first["items"][3]["standard_metric"] is None
+    before_items = snapshot(factory, ConfirmationItem)
+    before_machine = machine_snapshot(factory, task)
+    assert change(api, auth, "standard-metrics", metric_id(factory, "ALT"), name="当前 ALT 名称").status_code == 200
+
+    def forbidden_resolver(*args, **kwargs):
+        pytest.fail("existing workspace must not run the resolver for display")
+
+    monkeypatch.setattr(confirmation_service, "resolve_exact", forbidden_resolver)
+    statements = []
+
+    def record(conn, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().upper().startswith("SELECT") and "FROM standard_metrics" in statement:
+            statements.append(statement)
+
+    engine = factory.kw["bind"]
+    event.listen(engine, "before_cursor_execute", record)
+    try:
+        second = workspace(api, owner, path)
+    finally:
+        event.remove(engine, "before_cursor_execute", record)
+    assert len(statements) == 1  # one batch lookup, including repeated metric IDs
+    assert [i["id"] for i in second["items"]] == [i["id"] for i in first["items"]]
+    assert second["pending_count"] == 4
+    for item in second["items"]:
+        assert item["review_status"] == "PENDING" and item["resolution"] is None
+        if item["standard_metric_id"]:
+            assert item["standard_metric"]["id"] == item["standard_metric_id"]
+    assert second["items"][0]["standard_metric"]["name"] == "当前 ALT 名称"
+    assert second["items"][2]["standard_metric"]["name"] == "当前 ALT 名称"
+    assert second["items"][3]["standard_metric"] is None
+    assert snapshot(factory, ConfirmationItem) == before_items
+    assert machine_snapshot(factory, task) == before_machine
 
 
 def test_old_workspace_never_recomputed_and_pending_blocks_deactivation(client):
@@ -301,6 +354,46 @@ def test_formal_history_rename_inactive_favorite_and_no_backfill(client):
     result = api.get(f"/api/v1/reports/{rid}", headers=headers(owner)).json()["results"]
     assert result[0]["metric_name"] == "合成指标" and result[1]["standard_metric"] is None
     assert snapshot(factory, LabResult) == before and snapshot(factory, ConfirmationItem) == confirmation
+
+
+def test_adapter_worker_unmatched_issue_and_review_workspace_stay_immutable(client, monkeypatch):
+    api, factory = client
+    auth = admin(api)
+    owner = login(api, "adapter07")
+    _report, path = new_report(api, owner, profile(api, owner)["id"])
+    assert api.post(path + "/recognize", headers=headers(owner)).status_code == 200
+    with factory() as db:
+        task = claim(db, "adapter-test")
+    candidate = {"metricId": "ALT", "standardName": "丙氨酸氨基转移酶"}
+    rows = [{"raw": {"metric": f"合成陌生指标{index}", "result": "3.1"},
+             "finalStatus": "FINAL_AUTO" if status == "AUTO_MATCHED" else "FINAL_REVIEW",
+             "finalReasons": [], "metricMatch": {"status": status, "metric": candidate,
+                                                   "topCandidates": [{"metric": candidate}]}}
+            for index, status in enumerate(("UNMATCHED", "REVIEW", "AUTO_MATCHED"))]
+    mapped = [map_row(row, task.input_manifest[0], index + 1) for index, row in enumerate(rows)]
+    monkeypatch.setattr(ocr_worker, "run_pipeline", lambda *_: (
+        mapped, {}, {"total_count": 3, "auto_count": 1, "review_count": 2}, "synthetic/adapter/"))
+    ocr_worker.process(factory, task, "adapter-test")
+    with factory() as db:
+        assert db.get(OcrTask, task.id).status == "SUCCEEDED"
+        persisted = list(db.scalars(select(OcrResultItem).where(OcrResultItem.ocr_task_id == task.id)
+                                   .order_by(OcrResultItem.sequence_no)))
+        assert [(r.standard_metric_code, r.standard_metric_name) for r in persisted] == [
+            (None, None), ("ALT", candidate["standardName"]), ("ALT", candidate["standardName"])]
+        assert [r.payload for r in persisted] == rows
+        assert [r.evidence["metricMatch"] for r in persisted] == [r["metricMatch"] for r in rows]
+    before = snapshot(factory, OcrResultItem)
+    issues = api.get("/api/v1/admin/ocr-metric-issues", headers=auth).json()["items"]
+    assert len(issues) == 1 and issues[0]["issue_type"] == "UNMATCHED_NAME"
+    assert issues[0]["representative_name"] == "合成陌生指标0"
+    assert issues[0]["occurrence_count"] == issues[0]["ingestion_count"] == 1
+    items = workspace(api, owner, path)["items"]
+    assert [i["review_status"] for i in items] == ["PENDING", "PENDING", "RESOLVED"]
+    assert [i["standard_metric_id"] for i in items] == [None, metric_id(factory, "ALT"), metric_id(factory, "ALT")]
+    alias(api, auth, metric_id(factory, "ALT"), "合成陌生指标0")
+    assert api.get("/api/v1/admin/ocr-metric-issues", headers=auth).json()["items"] == []
+    assert workspace(api, owner, path)["items"] == items
+    assert snapshot(factory, OcrResultItem) == before
 
 
 def test_ocr_issues_latest_success_privacy_dynamic_coverage_and_task_readonly(client):

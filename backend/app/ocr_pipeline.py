@@ -38,7 +38,9 @@ def map_row(row: dict, asset: dict, sequence_no: int,
         raise OcrExecutionError("OCR_OUTPUT_INVALID")
     raw = row.get("raw") or {}
     resolved = row.get("resolved") or {}
-    metric = (row.get("metricMatch") or {}).get("metric") or {}
+    match = row.get("metricMatch") or {}
+    # UNMATCHED may retain a best candidate for audit, but it is not an identity.
+    metric = (match.get("metric") or {}) if match.get("status") in {"AUTO_MATCHED", "REVIEW"} else {}
     validation = row.get("resultValidation") or {}
     structured = validation.get("structuredResult") or {}
     reference = validation.get("structuredReference") or {}

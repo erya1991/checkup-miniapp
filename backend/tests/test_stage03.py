@@ -1,4 +1,5 @@
 import io
+from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
@@ -127,7 +128,7 @@ def test_pipeline_mapping_preserves_machine_decision():
     asset_manifest = {"asset_id": "asset-1", "page_no": 2}
     row = {"raw": {"metric": "原始名", "result": "3.1", "unit": "mmol/L", "reference": "1~4"},
            "resolved": {"result": "3.1", "reference": "1~4", "unit": "mmol/L"},
-           "metricMatch": {"metric": {"metricId": "CODE", "standardName": "标准名"}},
+           "metricMatch": {"status": "REVIEW", "metric": {"metricId": "CODE", "standardName": "标准名"}},
            "resultValidation": {"structuredResult": {"numericValue": 3.1, "comparator": "="},
                                 "structuredReference": {"low": 1, "high": 4},
                                 "abnormal": {"final": "NORMAL"}},
@@ -142,6 +143,30 @@ def test_pipeline_mapping_preserves_machine_decision():
     assert mapped["page_no"] == 2
     row["reviewCategory"] = "PIPELINE_GAP"
     assert map_row(row, asset_manifest, 2)["final_decision"] == "FINAL_REVIEW"
+
+
+@pytest.mark.parametrize("match_status,decision,code,name", [
+    ("UNMATCHED", "FINAL_REVIEW", None, None),
+    ("REVIEW", "FINAL_REVIEW", "ALT", "丙氨酸氨基转移酶"),
+    ("AUTO_MATCHED", "FINAL_AUTO", "ALT", "丙氨酸氨基转移酶"),
+    (None, "FINAL_REVIEW", None, None),
+    ("UNKNOWN", "FINAL_REVIEW", None, None),
+])
+def test_mapping_candidate_identity_requires_match_status(match_status, decision, code, name):
+    candidate = {"metricId": "ALT", "standardName": "丙氨酸氨基转移酶"}
+    row = {"raw": {"metric": "合成陌生指标"}, "finalStatus": decision,
+           "finalReasons": ["SYNTHETIC_REASON"], "reviewCategory": "SAFE_REVIEW",
+           "metricMatch": {"status": match_status, "metric": candidate,
+                           "score": 12, "topCandidates": [{"metric": candidate, "score": 12}]}}
+    original = deepcopy(row)
+    mapped = map_row(row, {"asset_id": "synthetic-asset", "page_no": 1}, 1)
+    assert (mapped["standard_metric_code"], mapped["standard_metric_name"]) == (code, name)
+    assert mapped["final_decision"] == decision
+    assert mapped["review_reasons"] == original["finalReasons"]
+    assert mapped["review_category"] == original["reviewCategory"]
+    assert mapped["evidence"]["metricMatch"] == original["metricMatch"]
+    assert mapped["payload"] == original
+    assert row == original
 
 
 def test_worker_review_is_success_without_formal_report(stage03_client, monkeypatch):

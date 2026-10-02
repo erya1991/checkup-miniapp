@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { errorText, query, request, save, type Issue, type Page } from '../api'
+import { formatAdminTimeCell } from '../time'
 import AliasDialog from '../components/AliasDialog.vue'
 import MetricDialog from '../components/MetricDialog.vue'
 const kind = ref('UNMATCHED_NAME'), rows = ref<Issue[]>([]), page = ref(1), total = ref(0)
@@ -36,7 +37,7 @@ onMounted(load)
     <el-table v-loading="loading" :data="rows" empty-text="暂无待处理指标问题">
       <el-table-column label="名称 / code" min-width="180"><template #default="{ row }">{{ row.representative_name || row.ocr_code }}</template></el-table-column>
       <el-table-column label="归一化 / OCR 标准名称" min-width="180"><template #default="{ row }">{{ row.normalized_name || row.ocr_standard_name || '未记录' }}</template></el-table-column>
-      <el-table-column prop="occurrence_count" label="出现次数" width="100" /><el-table-column prop="ingestion_count" label="报告次数" width="100" /><el-table-column prop="latest_seen_at" label="最近出现" min-width="180" />
+      <el-table-column prop="occurrence_count" label="出现次数" width="100" /><el-table-column prop="ingestion_count" label="报告次数" width="100" /><el-table-column prop="latest_seen_at" label="最近出现" min-width="180" :formatter="formatAdminTimeCell" />
       <el-table-column label="名称样例" min-width="180"><template #default="{ row }">{{ row.sample_names?.join(' / ') || '—' }}</template></el-table-column>
       <el-table-column label="操作" width="180"><template #default="{ row }"><el-button link :disabled="busy" @click="act(row)">{{ row.issue_type === 'UNMATCHED_NAME' ? '创建别名' : row.issue_type === 'PRODUCT_METRIC_MISSING' ? '创建标准指标' : '恢复标准指标' }}</el-button></template></el-table-column>
     </el-table>

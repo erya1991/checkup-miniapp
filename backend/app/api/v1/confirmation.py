@@ -73,11 +73,15 @@ class CommitInput(Input):
 
 
 def workspace_data(db, user, ingestion, items):
+    metric_ids = {item.standard_metric_id for item in items if item.standard_metric_id}
+    metrics = {m.id: {"id": m.id, "code": m.code, "name": m.name, "status": m.status}
+               for m in db.scalars(select(StandardMetric).where(StandardMetric.id.in_(metric_ids)))} if metric_ids else {}
     serialized = []
     for item in items:
         source = db.get(OcrResultItem, item.source_ocr_result_item_id) if item.source_ocr_result_item_id else None
         serialized.append({
             "id": item.id, **{k: getattr(item, k) for k in VALUE_FIELDS},
+            "standard_metric": metrics.get(item.standard_metric_id),
             "source_ocr_result_item_id": item.source_ocr_result_item_id,
             "source_type": item.source_type, "review_status": item.review_status,
             "resolution": item.resolution,

@@ -1,4 +1,4 @@
-# Backend（Stage 06 = PASS；Stage 07 等待人工验收）
+# Backend（Stage 06 = PASS；Stage 07 = PASS）
 
 提供健康检查、微信 code 登录、健康档案、COS 原图资产、OCR 任务/持久化队列/独立 Worker，以及 Stage 04 确认和 commit。`0003_ocr` 增加不可变机器快照；`0004_confirmation_report` 增加报告确认字段及 StandardMetric / ConfirmationItem / LabReport / LabResult。识别成功只到 `PENDING_CONFIRMATION`；用户处理全部 REVIEW 并显式 commit 后才生成正式数据。Stage 04 已 PASS。Stage 05 正式报告管理已通过最终自动回归，负责人已确认真实微信 V01～V06 全部 PASS，最终 Stage 05 = PASS（2026-10-01），见 [Stage 05 RESULT](../docs/stages/05-report-management/RESULT.md)。
 
@@ -104,4 +104,4 @@ Stage 04/05 专项保留原迁移、revision 和全部业务断言，先核查�
 
 专项命令：`.venv/Scripts/python.exe tests/verify_postgres_stage07.py`。真实 PG17 验证空库/增量/回退、实际 UNIQUE、并发 Alias/code/rename、pending 与 commit/init 竞态、旧快照和历史兼容，finally 删除临时库并核查不存在。Stage 03 两项 index drift 保持原状，完整 `alembic check` 不记为通过。
 
-**AUTOMATED PASS / WAITING MANUAL ACCEPTANCE**，T01～T13 待负责人执行，见 [RESULT](../docs/stages/07-admin/RESULT.md)。本轮未迁移业务库、配置真实管理员、部署、提交或推送。
+**Stage 07 = PASS（2026-10-03）**，负责人真实人工验收 T01～T13 全部 PASS，最终自动及五组 PG17 回归通过，见 [RESULT](../docs/stages/07-admin/RESULT.md)。Confirmation API 批量返回 canonical 摘要；产品 adapter 仅 AUTO_MATCHED / REVIEW 映射 code/name，UNMATCHED 为 NULL，完整候选证据保留。更新代码后需重启 API / OCR Worker；既有 OCR 快照不修复、不重算，T11 已用新任务复验。

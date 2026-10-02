@@ -2,6 +2,7 @@ export interface StandardMetric { id: string; code: string; name: string; status
 export interface ConfirmationItem {
   id: string; sequence_no: number; metric_name: string; result_text: string
   unit_original: string | null; reference_text: string | null; standard_metric_id: string | null
+  standard_metric?: StandardMetric | null
   unit_normalized?: string | null
   source_type: 'OCR_AUTO' | 'OCR_CORRECTED' | 'MANUAL'
   review_status: 'PENDING' | 'RESOLVED'; resolution: string | null
@@ -19,6 +20,13 @@ export async function saveThenCommit<T>(save: () => Promise<void>, commit: () =>
 export interface ItemForm {
   metric_name: string; result_text: string; unit_original: string
   reference_text: string; standard_metric_id: string | null
+}
+
+export function standardMetricLabel(id: string | null, canonical?: StandardMetric | null,
+  searchedNames: Record<string, string> = {}): string {
+  if (!id) return '未关联'
+  if (canonical?.id === id) return `${canonical.name}（${canonical.code}）`
+  return searchedNames[id] || '已关联，可重新选择'
 }
 
 export function groupedItems(items: ConfirmationItem[]) {

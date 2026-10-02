@@ -2,7 +2,7 @@
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { ApiError, ensureLogin, request, type Asset, type Ingestion, type Profile } from '../../api'
-import { confirmationErrorMessages, groupedItems, itemForm, itemPayload, saveThenCommit,
+import { confirmationErrorMessages, groupedItems, itemForm, itemPayload, saveThenCommit, standardMetricLabel,
   type ConfirmationItem, type ItemForm, type StandardMetric } from '../../confirmation'
 
 interface Workspace {
@@ -219,6 +219,7 @@ function done() { uni.reLaunch({ url: '/pages/index/index' }) }
           <text v-if="!groups.pending.length">待确认项目已全部处理。</text>
           <view v-for="item in groups.pending" :key="item.id" class="item">
             <text class="warning">待确认 · {{ item.metric_name || '名称待填写' }}</text>
+            <text v-if="item.standard_metric_id">标准指标：{{ standardMetricLabel(item.standard_metric_id, item.standard_metric) }}</text>
             <text>{{ item.result_text || '结果待填写' }} {{ item.unit_normalized || item.unit_original }} · 参考：{{ item.reference_text || '无' }}</text>
             <button v-if="item.source" size="mini" @click="preview(item.source.asset_id)">查看来源第 {{ item.source.page_no }} 页</button>
             <button size="mini" :disabled="busy" @click="edit(item)">核对 / 修改 / 选择标准指标</button>
@@ -232,6 +233,7 @@ function done() { uni.reLaunch({ url: '/pages/index/index' }) }
           <text>AUTO 默认采用，无需逐项确认；如有错误可主动修改。</text>
           <view v-for="item in groups.adopted" :key="item.id" class="item">
             <text>{{ item.metric_name }} · {{ item.result_text }} {{ item.unit_normalized || item.unit_original }}</text>
+            <text v-if="item.standard_metric_id">标准指标：{{ standardMetricLabel(item.standard_metric_id, item.standard_metric) }}</text>
             <text>{{ item.source_type === 'OCR_AUTO' ? '自动采用' : item.source_type === 'MANUAL' ? '手工录入' : '人工核对' }}</text>
             <button size="mini" :disabled="busy" @click="edit(item)">编辑</button>
             <button size="mini" :disabled="busy" @click="resolve(item, 'REMOVED')">删除错误项</button>
@@ -252,7 +254,7 @@ function done() { uni.reLaunch({ url: '/pages/index/index' }) }
           <text>结果（支持文本结果）</text><input v-model="form.result_text" :disabled="busy" />
           <text>单位（可空）</text><input v-model="form.unit_original" :disabled="busy" />
           <text>参考范围（可空）</text><input v-model="form.reference_text" :disabled="busy" />
-          <text>标准指标：{{ form.standard_metric_id ? metricNames[form.standard_metric_id] || '已关联，可重新选择' : '未关联' }}</text>
+          <text>标准指标：{{ standardMetricLabel(form.standard_metric_id, selected?.standard_metric, metricNames) }}</text>
           <input v-model="metricQuery" :disabled="busy || searching" placeholder="输入标准名称或 code" />
           <button :disabled="busy || searching" @click="searchMetrics">{{ searching ? '查询中...' : '查询标准指标' }}</button>
           <text v-if="searched && !metrics.length">没有匹配的标准指标，可按原名称保存。</text>

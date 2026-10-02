@@ -32,6 +32,7 @@ from app.models import (
     StandardMetric,
     User,
 )
+from app.ocr_pipeline import map_row
 
 
 def snapshot(factory):
@@ -175,6 +176,23 @@ def exercise(engine, context):
     # Deterministic overlap: the resolver holds shared row locks before the admin
     # attempts deactivate; after initialization commits the admin must see pending.
     _user_id, ocr_iid, task_id = legacy_fixture(engine)
+    with factory() as db:
+        task = db.get(OcrTask, task_id)
+        candidate = {"metricId": "ALT", "standardName": "丙氨酸氨基转移酶"}
+        raw = {"raw": {"metric": "合成陌生适配指标"}, "finalStatus": "FINAL_REVIEW",
+               "metricMatch": {"status": "UNMATCHED", "metric": candidate,
+                               "topCandidates": [{"metric": candidate}]}}
+        db.add(OcrResultItem(ocr_task_id=task_id, **map_row(raw, task.input_manifest[0], 3)))
+        task.result_summary = {"total_count": 3, "auto_count": 1, "review_count": 2}
+        db.commit()
+        row = db.scalar(select(OcrResultItem).where(OcrResultItem.ocr_task_id == task_id,
+                                                   OcrResultItem.sequence_no == 3))
+        assert row.standard_metric_code is None and row.standard_metric_name is None
+        assert row.payload == raw and row.evidence["metricMatch"] == raw["metricMatch"]
+        issues = admin_ocr.metric_issues(db, issue_type="UNMATCHED_NAME")["items"]
+        issue = next(i for i in issues if i["representative_name"] == "合成陌生适配指标")
+        assert issue["occurrence_count"] == issue["ingestion_count"] == 1
+    print("PG adapter UNMATCHED candidate stored as NULL identity with audit evidence; issue visible: PASS")
     initialized, release, admin_started = Event(), Event(), Event()
     def initialize():
         with factory() as db:
@@ -215,8 +233,13 @@ def exercise(engine, context):
         ocr_before = [{c.name: getattr(i, c.name) for c in OcrResultItem.__table__.columns}
                       for i in db.scalars(select(OcrResultItem).where(OcrResultItem.ocr_task_id == task_id))]
         admin_metrics.save_alias(db, {"standard_metric_id": alt, "alias": "合成指标2", "alias_type": "OCR_VARIANT"})
+        admin_metrics.save_alias(db, {"standard_metric_id": alt, "alias": "合成陌生适配指标", "alias_type": "OCR_VARIANT"})
         db.commit()
         again = ensure_workspace(db, db.get(ReportIngestion, ocr_iid))
+        unmatched = next(i for i in again if i.source_ocr_result_item_id == row.id)
+        assert unmatched.standard_metric_id is None and unmatched.review_status == "PENDING"
+        assert not any(i["representative_name"] == "合成陌生适配指标"
+                       for i in admin_ocr.metric_issues(db, issue_type="UNMATCHED_NAME")["items"])
         assert [{c.name: getattr(i, c.name) for c in ConfirmationItem.__table__.columns} for i in again] == old_items
         assert [{c.name: getattr(i, c.name) for c in OcrResultItem.__table__.columns}
                 for i in db.scalars(select(OcrResultItem).where(OcrResultItem.ocr_task_id == task_id))] == ocr_before

@@ -1,4 +1,4 @@
-# Backend（Stage 07 = PASS；Stage 08 自动验证完成，人工验收 PENDING）
+# Backend（Stage 08 = PASS）
 
 提供健康检查、微信 code 登录、健康档案、COS 原图资产、OCR 任务/持久化队列/独立 Worker，以及 Stage 04 确认和 commit。`0003_ocr` 增加不可变机器快照；`0004_confirmation_report` 增加报告确认字段及 StandardMetric / ConfirmationItem / LabReport / LabResult。识别成功只到 `PENDING_CONFIRMATION`；用户处理全部 REVIEW 并显式 commit 后才生成正式数据。Stage 04 已 PASS。Stage 05 正式报告管理已通过最终自动回归，负责人已确认真实微信 V01～V06 全部 PASS，最终 Stage 05 = PASS（2026-10-01），见 [Stage 05 RESULT](../docs/stages/05-report-management/RESULT.md)。
 
@@ -102,7 +102,7 @@ Stage 07 migration `0007_standard_metric_admin`：只增加可空 category、Met
 
 `0008_profile_data_deletion` 新增 `file_cleanups.not_before TIMESTAMPTZ NULL` 和 `(status,not_before,created_at)` 索引。无未来有效授权为NULL，立即due；含consumed的未来授权取最晚 expires_at + 60秒。授权签发记录取真实 STS expired_time 与本地15分钟的较晚值。cleanup扫描及执行入口双重检查not_before，继续使用OBJECT引用保护、PREFIX全量删除、失败PENDING重试；Stage05 NULL仍即时处理。
 
-本轮自动验证仅使用UUID隔离库和合成COS替身。Backend124项、Ruff、PG17 Stage08及03～07专项通过。真实微信人工验收前，在所选验收环境执行 `.venv/Scripts/alembic.exe upgrade head` 并重启API/cleanup worker；本轮未执行业务库迁移或部署。命令：`.venv/Scripts/python.exe tests/verify_postgres_profile_deletion.py`。详见 [Stage08 RESULT](../docs/stages/08-profile-data-deletion/RESULT.md)，T01～T06仍PENDING。
+Stage08最终PASS（2026-10-03）。最终Backend124项（0 failed、0 skipped）、Ruff、PostgreSQL17.11 Stage08及03～07专项全部通过；独立查询临时库0残留，唯一head为 `0008_profile_data_deletion`。负责人2026-10-03真实微信T01～T06全部PASS，实机结果不以自动/API/PG验证替代。Codex本次回归仅使用UUID隔离库和合成COS替身，未执行业务库迁移或部署。其它目标环境沿用 `.venv/Scripts/alembic.exe upgrade head` 后重启API/cleanup worker的运行步骤。专项命令：`.venv/Scripts/python.exe tests/verify_postgres_profile_deletion.py`，证据见 [Stage08 RESULT](../docs/stages/08-profile-data-deletion/RESULT.md)。
 
 | 方法 | 路径（前缀 /api/v1/admin） | 行为 |
 | --- | --- | --- |

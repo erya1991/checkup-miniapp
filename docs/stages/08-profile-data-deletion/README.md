@@ -4,4 +4,4 @@
 
 实施与验收以本目录 `PLAN.md`、`ACCEPTANCE.md` 为唯一阶段基线，实际结果见 `RESULT.md`。
 
-**代码与自动验证完成；负责人真实微信T01～T06：PENDING，Stage08尚未最终PASS。** 不进入Stage09、Stage10或部署发布。
+**Stage 08 = PASS（2026-10-03）。** 最终自动回归与PostgreSQL17专项全部通过，负责人真实微信T01～T06全部PASS，人工证据独立于工程验证，详见 [RESULT](RESULT.md)。本轮完成验收文档提交，未实施Stage09、Stage10或部署发布。

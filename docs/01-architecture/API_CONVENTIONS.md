@@ -68,6 +68,8 @@
 ### Health Profile
 - CRUD `/health-profiles`
 - `PUT /me/default-health-profile`
+- `GET /health-profiles/{id}/deletion-impact`：本人档案身份与删除数量摘要，无医疗明细。
+- `DELETE /health-profiles/{id}`：Stage08整档案物理隐私删除，事务提交后204；文件可在授权失效后异步清理。PROCESSING返回409 `PROFILE_DELETE_BUSY`（processing_count），跨用户/不存在/重复删除统一404 `PROFILE_NOT_FOUND`；数据库回滚错误为 `PROFILE_DELETE_FAILED`。
 
 ### Ingestion
 - `POST /ingestions`

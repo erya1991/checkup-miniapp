@@ -22,11 +22,13 @@ from app.models import (
     StandardMetric,
     UploadAuthorization,
 )
+from app.profile_lifecycle import lock_lifecycle
 
 
 def report_for(db, user, report_id, lock=False):
     query = select(LabReport).where(LabReport.id == report_id, LabReport.user_id == user.id)
     if lock:
+        lock_lifecycle(db, user.id)
         query = query.with_for_update().execution_options(populate_existing=True)
     report = db.scalar(query)
     if report is None:

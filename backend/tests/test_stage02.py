@@ -117,7 +117,9 @@ def test_profiles_crud_default_and_cross_user(client):
                    json={"health_profile_id": foreign["id"]}).status_code == 404
     assert api.delete(f"/api/v1/health-profiles/{father['id']}", headers=headers(a)).status_code == 204
     with factory() as db:
-        assert db.get(HealthProfile, father["id"]).status == "DELETED"
+        # Stage 08 explicitly replaces the old soft-delete contract with privacy deletion.
+        assert db.get(HealthProfile, father["id"]) is None
+        assert db.get(User, a["user"]["id"]).default_health_profile_id == own["id"]
 
 
 def test_ingestion_assets_ready_order_delete_and_resume(client):

@@ -29,6 +29,8 @@ checkup-miniapp/
 
 ## 当前阶段
 
+**Stage 08 代码与自动验证已完成，等待负责人真实微信 T01～T06 验收，尚未最终 PASS。** 已实现健康档案永久删除、影响预览、完整数据链清理、上传授权有效期后的可靠文件清理，以及 PROCESSING OCR 安全阻断。详见 [Stage 08 RESULT](docs/stages/08-profile-data-deletion/RESULT.md)。本轮不进入 Stage 09 / Stage 10，不部署、不合并、不推送。
+
 Stage 00～07 已验收通过。**Stage 04 = PASS**，已完成人工确认工作区、报告信息确认、AUTO/REVIEW 处理、StandardMetric 选择、手工补项/纯手工兜底、疑似重复提示，以及事务安全、幂等的正式 `LabReport / LabResult` 生成。项目负责人已在真实微信小程序中完成 W01～W04 人工验收，逐项证据见 [Stage 04 RESULT](docs/stages/04-confirmation-report/RESULT.md)。
 
 OCR 成功只到 `PENDING_CONFIRMATION`，必须经过用户人工确认和最终 commit；只有 commit 后的 `LabReport / LabResult` 才是正式健康数据。**Stage 05 = PASS（2026-10-01）**，正式报告管理已实现并通过最终自动回归，负责人已确认真实微信 V01～V06 全部 PASS。正式列表/详情仅查询 LabReport / LabResult；支持原图、整份档案迁移、完整硬删除和持久化 COS prefix 清理。Stage 06 已正式 PASS，Stage 07 = PASS，Stage 05 证据见 [Stage 05 RESULT](docs/stages/05-report-management/RESULT.md)。
@@ -125,4 +127,12 @@ Stage 05 运行补充（在 `backend/`）：
 
 新增 `0007_standard_metric_admin`（前置0006），仅 category、metric_aliases 及其约束/索引；12项seed保留。工程回归仅操作隔离测试库。其它目标环境需升级 head、配置独立管理员、重启 API / OCR Worker / Admin，步骤见 [Admin README](admin-web/README.md)。
 
-最终回归：后端113项、小程序32项、Admin 7项、Ruff、两端typecheck、微信构建与Admin build通过。PG17 Stage 07 专项及 Stage 03～06 原专项通过，临时库无残留；详情见 [RESULT](docs/stages/07-admin/RESULT.md)。负责人真实 Admin Web / 微信 [T01～T13](docs/stages/07-admin/ACCEPTANCE.md) 全部 PASS，包含 T06 canonical 展示、T11 产品 UNMATCHED adapter 和 T13 北京时间展示修复后复验。历史机器快照未修改；T11 使用新 ingestion / OCR task 复验。本轮不进入 Stage 08。
+Stage 07 最终回归：后端113项、小程序32项、Admin 7项、Ruff、两端typecheck、微信构建与Admin build通过。PG17 Stage 07 专项及 Stage 03～06 原专项通过，临时库无残留；详情见 [RESULT](docs/stages/07-admin/RESULT.md)。负责人真实 Admin Web / 微信 [T01～T13](docs/stages/07-admin/ACCEPTANCE.md) 全部 PASS，包含 T06 canonical 展示、T11 产品 UNMATCHED adapter 和 T13 北京时间展示修复后复验。历史机器快照未修改；T11 使用新 ingestion / OCR task 复验。
+
+## Stage 08 健康档案隐私删除
+
+健康档案管理页先显示服务端删除影响，再由用户明确确认永久删除。删除物理清除 HealthProfile、正式报告/结果、Confirmation、全部 OCR run/结果、Asset、UploadAuthorization、Ingestion 和 Favorite；StandardMetric / MetricAlias 不受影响。正在 PROCESSING 的 OCR 返回 `PROFILE_DELETE_BUSY`，任务结束后可再次删除。默认档案稳定替换；最后一个档案删除后进入空状态。
+
+新增 migration `0008_profile_data_deletion`，前置0007。FileCleanup 新增 nullable `not_before`：无未来有效授权可立即清理；有未来授权（含 consumed）等待最大 expires_at + 60秒。每个 ingestion 的完整 PREFIX cleanup 与 DB 删除在同一事务提交；COS 故障保持 PENDING 重试，不恢复已删除健康数据。运行命令仍是 `python -m app.cleanup_worker`。
+
+自动验证：Backend 124 passed，Miniapp 42 passed，Admin 7 passed，Ruff、两端 typecheck/build 通过；Stage 08 PG17 专项及 Stage 03～07 原专项通过，临时测试库独立核验无残留。专项命令（backend）：`.venv/Scripts/python.exe tests/verify_postgres_profile_deletion.py`。本轮仅升级隔离测试库；真实微信验收环境需先升级 head 并重启 API / cleanup worker，微信产物位于 `miniapp/dist/build/mp-weixin`。负责人 T01～T06 仍为 PENDING。

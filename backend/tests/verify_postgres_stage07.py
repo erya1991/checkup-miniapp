@@ -8,7 +8,7 @@ from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.migration import MigrationContext
-from sqlalchemy import create_engine, func, inspect, select, text
+from sqlalchemy import MetaData, create_engine, func, inspect, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
@@ -43,9 +43,17 @@ def snapshot(factory):
             for entity in (OcrTask, OcrResultItem, ConfirmationItem, LabReport, LabResult, MetricFavorite)}
 
 
-def schema_drift(engine):
+def schema_drift(engine, historical=False):
+    metadata = Base.metadata
+    if historical:
+        metadata = MetaData()
+        for table in Base.metadata.sorted_tables:
+            copied = table.to_metadata(metadata)
+            if table.name == "file_cleanups":
+                copied.indexes = {i for i in copied.indexes if i.name != "ix_file_cleanups_due"}
+                copied._columns.remove(copied.c.not_before)
     with engine.connect() as conn:
-        differences = compare_metadata(MigrationContext.configure(conn), Base.metadata)
+        differences = compare_metadata(MigrationContext.configure(conn), metadata)
     assert all(len(diff) == 2 and diff[0] in {"add_index", "remove_index"} for diff in differences), differences
     signature = sorted((action, item.table.name, item.name, tuple(c.name for c in item.columns))
                        for action, item in differences)
@@ -289,11 +297,11 @@ def main():
                 before = snapshot(factory)
                 assert not inspect(engine).has_table("metric_aliases")
                 assert "category" not in {c["name"] for c in inspect(engine).get_columns("standard_metrics")}
-                command.upgrade(Config("alembic.ini"), "head")
+                command.upgrade(Config("alembic.ini"), "0007_standard_metric_admin")
                 assert snapshot(factory) == before
                 print("PG002 0006 -> 0007, all legacy OCR/confirmation/formal/favorite snapshots preserved: PASS")
             else:
-                command.upgrade(Config("alembic.ini"), "head")
+                command.upgrade(Config("alembic.ini"), "0007_standard_metric_admin")
                 context = legacy_reports(engine)
                 print("PG001 empty -> 0001..0007: PASS")
             with engine.connect() as conn:
@@ -304,17 +312,18 @@ def main():
             assert inspector.get_foreign_keys("metric_aliases")
             assert any(i["name"] == "uq_metric_aliases_active_normalized" and i["unique"]
                        for i in inspector.get_indexes("metric_aliases"))
-            schema_drift(engine)
+            schema_drift(engine, historical=True)
             if index == 0:
                 saved = snapshot(factory)
                 command.downgrade(Config("alembic.ini"), "0006_metric_trend")
                 assert not inspect(engine).has_table("metric_aliases")
                 assert "category" not in {c["name"] for c in inspect(engine).get_columns("standard_metrics")}
                 assert snapshot(factory) == saved
-                command.upgrade(Config("alembic.ini"), "head")
+                command.upgrade(Config("alembic.ini"), "0007_standard_metric_admin")
                 assert snapshot(factory) == saved
-                schema_drift(engine)
+                schema_drift(engine, historical=True)
                 print("PG003 downgrade 0006 / re-upgrade 0007, no medical backfill: PASS")
+            command.upgrade(Config("alembic.ini"), "head")
             exercise(engine, context)
             schema_drift(engine)
         print("PostgreSQL 17 Stage 07 integration: PASS; Stage 03 index drift unchanged")

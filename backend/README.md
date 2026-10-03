@@ -1,4 +1,4 @@
-# Backend（Stage 06 = PASS；Stage 07 = PASS）
+# Backend（Stage 07 = PASS；Stage 08 自动验证完成，人工验收 PENDING）
 
 提供健康检查、微信 code 登录、健康档案、COS 原图资产、OCR 任务/持久化队列/独立 Worker，以及 Stage 04 确认和 commit。`0003_ocr` 增加不可变机器快照；`0004_confirmation_report` 增加报告确认字段及 StandardMetric / ConfirmationItem / LabReport / LabResult。识别成功只到 `PENDING_CONFIRMATION`；用户处理全部 REVIEW 并显式 commit 后才生成正式数据。Stage 04 已 PASS。Stage 05 正式报告管理已通过最终自动回归，负责人已确认真实微信 V01～V06 全部 PASS，最终 Stage 05 = PASS（2026-10-01），见 [Stage 05 RESULT](../docs/stages/05-report-management/RESULT.md)。
 
@@ -26,7 +26,7 @@ py -3.12 -m venv .venv-paddle
 .\.venv\Scripts\python.exe tests\verify_postgres_confirmation.py
 ```
 
-配置读取仓库根目录 `.env` 或进程环境变量；`DATABASE_URL` 必填。常规 pytest mock 微信身份交换和 COS 服务端操作；独立的 PostgreSQL 队列脚本使用唯一命名临时数据库。COS 授权仅对一个随机 object key 开放 15 分钟 PutObject；登记时后端 HEAD 验证对象大小；原图预览通过短时签名 URL。删除原图时同步调用 COS 删除，失败保留 Asset 和持久化 `file_cleanups.PENDING`，用户可重试删除。已有导入任务的健康档案禁止删除。
+配置读取仓库根目录 `.env` 或进程环境变量；`DATABASE_URL` 必填。常规 pytest mock 微信身份交换和 COS 服务端操作；独立的 PostgreSQL 队列脚本使用唯一命名临时数据库。COS 授权仅对一个随机 object key 开放 15 分钟 PutObject；登记时后端 HEAD 验证对象大小；原图预览通过短时签名 URL。删除原图时同步调用 COS 删除，失败保留 Asset 和持久化 `file_cleanups.PENDING`，用户可重试删除。Stage 08 支持已有导入任务的整档案隐私删除，PROCESSING OCR 暂时阻断，详见下文。
 
 Stage 04 路由（前缀 `/api/v1`）：
 
@@ -88,7 +88,21 @@ Stage 04/05 专项保留原迁移、revision 和全部业务断言，先核查�
 
 ## Stage 07 主数据与 Admin
 
-唯一 head `0007_standard_metric_admin`：只增加可空 category、MetricAlias、该表 FK/CHECK/索引/ACTIVE partial unique index；不改旧 migration、seed 或历史医疗数据。管理员配置与启动见 [Admin README](../admin-web/README.md)。
+Stage 07 migration `0007_standard_metric_admin`：只增加可空 category、MetricAlias、该表 FK/CHECK/索引/ACTIVE partial unique index；不改旧 migration、seed 或历史医疗数据。当前 head 为 Stage 08 的0008。管理员配置与启动见 [Admin README](../admin-web/README.md)。
+
+## Stage 08 整档案隐私删除
+
+`GET /api/v1/health-profiles/{id}/deletion-impact` 返回本人档案 id/name、正式报告数、未完成/全部 ingestion 数、Favorite 数和 PROCESSING task 数，不返回医疗明细或对象 key。未完成数为当前归属且 status != CONFIRMED 的 ingestion 数。
+
+`DELETE /api/v1/health-profiles/{id}` 返回204。`profile_deletion.py` 在单事务内登记全部 ingestion PREFIX cleanup，并物理删除 LabResult、LabReport、ConfirmationItem、OcrResultItem、OcrTask、ReportAsset、UploadAuthorization、ReportIngestion、MetricFavorite、HealthProfile。公共 StandardMetric/MetricAlias 保留。默认档案从同用户剩余 ACTIVE 中按 created_at、id 升序选择，没有则 NULL。历史软删除档案不做批量 backfill。
+
+存在 PROCESSING task 时返回409 `PROFILE_DELETE_BUSY`，details只有 processing_count；未找到或跨用户为404 `PROFILE_NOT_FOUND`，重复删除同样404；数据库失败返回500 `PROFILE_DELETE_FAILED`并整体回滚。COS故障不改变已成功提交的204。
+
+`profile_lifecycle.py` 的 User 级 transaction advisory lock 先于用户侧业务行锁，覆盖同用户档案创建/编辑/default、新 ingestion、上传授权、确认/commit、报告迁移/删除、Favorite；跨用户无全局锁。整档案删除按 task → ingestion 顺序，兼容现有 Worker claim/finish，看到 PROCESSING 即回滚。Worker/queue/lease/runtime均未修改。后续生命周期写入口须先使用此 helper，再取业务行锁，不能绕过 API 的锁契约。
+
+`0008_profile_data_deletion` 新增 `file_cleanups.not_before TIMESTAMPTZ NULL` 和 `(status,not_before,created_at)` 索引。无未来有效授权为NULL，立即due；含consumed的未来授权取最晚 expires_at + 60秒。授权签发记录取真实 STS expired_time 与本地15分钟的较晚值。cleanup扫描及执行入口双重检查not_before，继续使用OBJECT引用保护、PREFIX全量删除、失败PENDING重试；Stage05 NULL仍即时处理。
+
+本轮自动验证仅使用UUID隔离库和合成COS替身。Backend124项、Ruff、PG17 Stage08及03～07专项通过。真实微信人工验收前，在所选验收环境执行 `.venv/Scripts/alembic.exe upgrade head` 并重启API/cleanup worker；本轮未执行业务库迁移或部署。命令：`.venv/Scripts/python.exe tests/verify_postgres_profile_deletion.py`。详见 [Stage08 RESULT](../docs/stages/08-profile-data-deletion/RESULT.md)，T01～T06仍PENDING。
 
 | 方法 | 路径（前缀 /api/v1/admin） | 行为 |
 | --- | --- | --- |

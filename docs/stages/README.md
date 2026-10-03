@@ -25,6 +25,6 @@
 | 05 | report-management | 报告列表、详情、原图、迁移、删除 |
 | 06 | metric-trend | 我的指标、历史、趋势、关注 |
 | 07 | admin | 轻量管理后台 |
-| 08 | production | 隐私、安全、备份、正式部署 |
+| 08 | profile-data-deletion | 健康档案隐私删除与数据生命周期闭环 |
 
 阶段 02～08 的详细 PLAN/ACCEPTANCE 在进入相应阶段前生成，不提前固化过多实现细节。

@@ -7,6 +7,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from app.api.v1.business import profile_for
 from app.models import LabReport, LabResult, MetricFavorite, StandardMetric
 from app.models.entities import now, uid
+from app.profile_lifecycle import lock_lifecycle
 
 # Identical safe trimming in SQL grouping and response display; no unit conversion.
 UNIT_WHITESPACE = " \t\n\r\v\f\u0085\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000"
@@ -171,6 +172,7 @@ def trend(db, user, profile_id, metric_id):
 
 
 def set_favorite(db, user, profile_id, metric_id, enabled):
+    lock_lifecycle(db, user.id)
     profile_for(db, user, profile_id)
     metric_for(db, metric_id)
     if enabled:

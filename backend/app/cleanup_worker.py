@@ -2,8 +2,9 @@
 import logging
 import re
 import time
+from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from app.core import cos
 from app.db.session import create_db_engine, create_session_factory
@@ -15,6 +16,8 @@ logger = logging.getLogger(__name__)
 def process_cleanup(db, cleanup):
     if cleanup.status == "DONE":
         return True
+    if cleanup.not_before and cleanup.not_before.replace(tzinfo=UTC) > datetime.now(UTC):
+        return False
     try:
         if cleanup.target_type == "OBJECT":
             # A failed user asset deletion leaves its reference intact. Such a
@@ -53,8 +56,9 @@ def attempt_cleanup(factory, cleanup_id):
 
 def run_once(factory):
     with factory() as db:
-        ids = list(db.scalars(select(FileCleanup.id).where(FileCleanup.status == "PENDING")
-                              .order_by(FileCleanup.created_at, FileCleanup.id)))
+        ids = list(db.scalars(select(FileCleanup.id).where(FileCleanup.status == "PENDING",
+            or_(FileCleanup.not_before.is_(None), FileCleanup.not_before <= datetime.now(UTC)))
+            .order_by(FileCleanup.not_before.asc().nulls_first(), FileCleanup.created_at, FileCleanup.id)))
     for cleanup_id in ids:
         attempt_cleanup(factory, cleanup_id)
     return len(ids)

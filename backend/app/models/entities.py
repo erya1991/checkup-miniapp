@@ -97,8 +97,10 @@ class ReportAsset(Base):
 class FileCleanup(Base):
     __tablename__ = "file_cleanups"
     __table_args__ = (CheckConstraint(
-        "target_type IN ('OBJECT', 'PREFIX')", name="ck_file_cleanup_target_type"),)
+        "target_type IN ('OBJECT', 'PREFIX')", name="ck_file_cleanup_target_type"),
+        Index("ix_file_cleanups_due", "status", "not_before", "created_at"),)
     target_type: Mapped[str] = mapped_column(String(16), default="OBJECT", server_default="OBJECT")
+    not_before: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     cos_object_key: Mapped[str] = mapped_column(String(256), unique=True)
     status: Mapped[str] = mapped_column(String(16), default="PENDING")

@@ -7,8 +7,12 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import profile_deletion
+from app.cleanup_worker import attempt_cleanup
+from app.confirmation import ConfirmationError
 from app.core.auth import create_token, current_user, db_session, exchange_wechat_code
 from app.core.cos import delete_object, object_metadata, preview_url, upload_credential
+from app.db.session import create_session_factory
 from app.models import (
     FileCleanup,
     HealthProfile,
@@ -18,6 +22,7 @@ from app.models import (
     UploadAuthorization,
     User,
 )
+from app.profile_lifecycle import lock_lifecycle
 
 router = APIRouter()
 DB_DEP = Depends(db_session)
@@ -41,6 +46,8 @@ def profile_for(db: Session, user: User, profile_id: str) -> HealthProfile:
 
 def ingestion_for(db: Session, user: User, ingestion_id: str,
                   lock: bool = False) -> ReportIngestion:
+    if lock:
+        lock_lifecycle(db, user.id)
     statement = select(ReportIngestion).where(ReportIngestion.id == ingestion_id,
                                               ReportIngestion.user_id == user.id)
     if lock:
@@ -133,6 +140,7 @@ def profiles(user: User = USER_DEP, db: Session = DB_DEP):
 @router.post("/health-profiles", status_code=201)
 def create_profile(body: ProfileInput, user: User = USER_DEP,
                    db: Session = DB_DEP):
+    user = lock_lifecycle(db, user.id)
     validate_profile(body.relation, body.gender)
     p = HealthProfile(user_id=user.id, **body.model_dump())
     db.add(p)
@@ -153,6 +161,7 @@ def get_profile(profile_id: str, user: User = USER_DEP,
 @router.put("/health-profiles/{profile_id}")
 def edit_profile(profile_id: str, body: ProfilePatch, user: User = USER_DEP,
                  db: Session = DB_DEP):
+    user = lock_lifecycle(db, user.id)
     p = profile_for(db, user, profile_id)
     changes = body.model_dump(exclude_unset=True)
     validate_profile(changes.get("relation", p.relation), changes.get("gender", p.gender))
@@ -165,16 +174,22 @@ def edit_profile(profile_id: str, body: ProfilePatch, user: User = USER_DEP,
 @router.delete("/health-profiles/{profile_id}", status_code=204)
 def remove_profile(profile_id: str, user: User = USER_DEP,
                    db: Session = DB_DEP):
-    p = profile_for(db, user, profile_id)
-    if db.scalar(select(ReportIngestion.id).where(ReportIngestion.health_profile_id == p.id)):
-        raise HTTPException(409, "PROFILE_HAS_INGESTIONS")
-    p.status = "DELETED"
-    if user.default_health_profile_id == p.id:
-        replacement = db.scalar(select(HealthProfile.id).where(
-            HealthProfile.user_id == user.id, HealthProfile.status == "ACTIVE",
-            HealthProfile.id != p.id).order_by(HealthProfile.created_at))
-        user.default_health_profile_id = replacement
-    db.commit()
+    try:
+        cleanup_ids = profile_deletion.delete_profile(db, user.id, profile_id)
+        db.commit()
+    except (HTTPException, ConfirmationError):
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(500, "PROFILE_DELETE_FAILED") from exc
+    for cleanup_id in cleanup_ids:
+        attempt_cleanup(create_session_factory(db.get_bind()), cleanup_id)
+
+
+@router.get("/health-profiles/{profile_id}/deletion-impact")
+def deletion_impact(profile_id: str, user: User = USER_DEP, db: Session = DB_DEP):
+    return profile_deletion.deletion_impact(db, user.id, profile_id)
 
 
 class DefaultProfile(BaseModel):
@@ -184,6 +199,7 @@ class DefaultProfile(BaseModel):
 @router.put("/me/default-health-profile")
 def set_default(body: DefaultProfile, user: User = USER_DEP,
                 db: Session = DB_DEP):
+    user = lock_lifecycle(db, user.id)
     profile_for(db, user, body.health_profile_id)
     user.default_health_profile_id = body.health_profile_id
     db.commit()
@@ -198,6 +214,7 @@ class IngestionInput(BaseModel):
 @router.post("/ingestions", status_code=201)
 def create_ingestion(body: IngestionInput, user: User = USER_DEP,
                      db: Session = DB_DEP):
+    user = lock_lifecycle(db, user.id)
     profile_for(db, user, body.health_profile_id)
     if body.mode != "OCR":
         raise HTTPException(422, "INVALID_INGESTION_MODE")
@@ -252,7 +269,8 @@ def authorize_upload(ingestion_id: str, body: UploadRequest,
     key = f"users/{user.id}/ingestions/{ingestion_id}/original/{uuid4()}.{ext}"
     result = upload_credential(key)
     db.add(UploadAuthorization(object_key=key, ingestion_id=ingestion_id,
-                               expires_at=datetime.now(UTC) + timedelta(minutes=15)))
+                               expires_at=max(datetime.now(UTC) + timedelta(minutes=15),
+                                              datetime.fromtimestamp(result["expired_time"], UTC))))
     db.commit()
     return result
 

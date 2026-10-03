@@ -218,6 +218,9 @@ def schema_drift(engine, before_stage06=False):
             copied = table.to_metadata(stage06_metadata)
             if table.name == "standard_metrics":
                 copied._columns.remove(copied.c.category)
+            if table.name == "file_cleanups":
+                copied.indexes = {i for i in copied.indexes if i.name != "ix_file_cleanups_due"}
+                copied._columns.remove(copied.c.not_before)
     with engine.connect() as conn:
         differences = compare_metadata(MigrationContext.configure(conn), stage06_metadata)
     if before_stage06:

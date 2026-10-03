@@ -31,6 +31,10 @@ V1.0 不强制真实姓名、身份证、手机号。
 
 所有业务访问必须先验证 `HealthProfile.user_id == current_user.id`。
 
+Stage 08 用户明确确认删除后物理删除 HealthProfile，同一事务清理当前归属的正式报告/结果、Confirmation、全部OCR run/结果、Asset、UploadAuthorization、Ingestion和MetricFavorite。公共StandardMetric/MetricAlias不属于用户私有删除范围。历史status=DELETED空档案不自动批量清理。任一PROCESSING task使删除返回PROFILE_DELETE_BUSY并整体回滚，不强制取消OCR。
+
+默认档案被删除时，按同用户剩余ACTIVE的created_at ASC、id ASC稳定替换，无剩余则NULL。用户侧生命周期写操作在业务行锁前取得按User ID区分的PostgreSQL事务advisory lock；整档案删除按task→ingestion行锁顺序与Worker协调，跨档案迁移与删除串行，仍以当前归属为准。
+
 ## 4. ReportIngestion
 
 代表一次临时导入生命周期。
@@ -120,6 +124,14 @@ Alias 只增强搜索与未来 Confirmation 首次初始化的 exact 预关联�
 ## 12. MetricFavorite
 
 唯一约束：`health_profile_id + standard_metric_id`。
+
+整档案隐私删除时物理清除该档案全部关注，不迁入其它档案。单报告删除仍允许保留该档案的dormant Favorite，保持Stage06原语义。
+
+## FileCleanup
+
+Stage05支持OBJECT/PREFIX与PENDING/DONE；Stage08新增nullable TIMESTAMPTZ `not_before`及(status,not_before,created_at)索引。每个待删ingestion的`users/{user_id}/ingestions/{ingestion_id}/`完整PREFIX cleanup先在同一删除事务登记，覆盖原图、OCR产物、retry/evidence以及未登记孤儿对象。
+
+无未来有效UploadAuthorization时not_before=NULL，立即可处理；有未来有效授权（包括consumed）时为最大expires_at+60秒。授权保存真实STS过期时间与本地15分钟的较晚值。worker只执行到期PENDING；失败保持PENDING，可重试，重复清理幂等。数据库删除提交后不因COS故障恢复健康数据；文件在凭据窗口结束后最终清除。既有NULL记录和Stage05单份报告即时清理语义保持。
 
 ## 13. Audit
 

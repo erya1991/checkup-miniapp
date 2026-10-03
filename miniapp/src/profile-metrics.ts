@@ -41,6 +41,10 @@ export function selectedSeries(series: TrendSeries[], key: string) {
 export function examinationLabel(result: { examination_date: string; examination_time: string | null }) {
   return `${result.examination_date}${result.examination_time ? ' ' + result.examination_time : '（时间未记录）'}`
 }
+export function chartDateLabel(result: { examination_date: string; examination_time: string | null }) {
+  return { year: result.examination_date.slice(0, 4), date: result.examination_date.slice(5),
+    time: result.examination_time?.slice(0, 5) || '' }
+}
 export const emptyTrendMessage = '暂无可绘制数值趋势，历史结果仍可查看。'
 
 // Page-local request lifecycle, including profile changes while requests are pending.

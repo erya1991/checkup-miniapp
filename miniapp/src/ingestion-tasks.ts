@@ -1,8 +1,8 @@
 export const taskStatusLabels: Record<string, string> = {
-  UPLOADING: '上传中',
+  UPLOADING: '继续上传',
   READY: '待开始识别',
-  QUEUED: '排队中',
-  PROCESSING: '识别中',
+  QUEUED: '等待识别',
+  PROCESSING: '正在识别',
   OCR_FAILED: '识别失败',
   PENDING_CONFIRMATION: '识别完成，待确认',
   CONFIRMED: '已保存',

@@ -25,8 +25,30 @@ export interface ItemForm {
 export function standardMetricLabel(id: string | null, canonical?: StandardMetric | null,
   searchedNames: Record<string, string> = {}): string {
   if (!id) return '未关联'
-  if (canonical?.id === id) return `${canonical.name}（${canonical.code}）`
+  if (canonical?.id === id) return canonical.name
   return searchedNames[id] || '已关联，可重新选择'
+}
+
+export function confirmationItemLabel(item: ConfirmationItem): string {
+  if (item.resolution === 'REMOVED') return '已移除'
+  // The source can be OCR_AUTO while a safe association still requires review.
+  if (item.review_status === 'PENDING') return '需要核对'
+  if (item.source_type === 'OCR_AUTO') return '已自动采用'
+  return item.source_type === 'MANUAL' ? '手工添加' : '已核对'
+}
+
+export function confirmationIdentityHint(item: ConfirmationItem): string {
+  if (item.standard_metric_id || item.resolution === 'REMOVED') return ''
+  return item.review_status === 'RESOLVED'
+    ? '按报告原名称保存 · 不参与“我的指标”趋势'
+    : '请选择关联指标，或在编辑中按报告原名称保存。'
+}
+
+export function confirmationFormErrors(form: ItemForm) {
+  return {
+    metric_name: form.metric_name.trim() ? '' : '请填写报告上的指标名称。',
+    result_text: form.result_text.trim() ? '' : '请填写报告上的结果，可填写数字或文本。',
+  }
 }
 
 export function groupedItems(items: ConfirmationItem[]) {
@@ -60,13 +82,13 @@ export function itemPayload(form: ItemForm, item: ConfirmationItem | null, keepO
 }
 
 export const confirmationErrorMessages: Record<string, string> = {
-  REVIEW_PENDING: '还有待确认项目，请先完成核对。',
+  REVIEW_PENDING: '还有项目需要核对，请先完成核对。',
   INVALID_REPORT_DATE: '请填写有效的检验日期和时间。',
   NO_REPORT_ITEMS: '请至少保留一项检验结果。',
   INVALID_CONFIRMATION_ITEM: '请填写指标名称和结果，并检查处理方式。',
-  STANDARD_METRIC_NOT_FOUND: '请选择有效的标准指标，或明确选择按原名称保存。',
+  STANDARD_METRIC_NOT_FOUND: '请选择可用的关联指标，或选择按报告原名称保存。',
   CONFIRMATION_SOURCE_INVALID: '确认来源不完整，请重试；无需重新识别。',
-  CONFIRMATION_NOT_READY: '该任务尚不能确认，请返回查看任务状态。',
+  CONFIRMATION_NOT_READY: '这份报告尚不能核对，请返回查看处理进度。',
   CONFIRMATION_LOCKED: '报告已经保存，确认内容已锁定。',
   REPORT_ASSET_REQUIRED: '请先上传至少一张原始报告图片。',
   PROFILE_NOT_FOUND: '所选健康档案不可用，请重新选择。',

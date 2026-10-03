@@ -29,7 +29,9 @@ checkup-miniapp/
 
 ## 当前阶段
 
-**Stage 08 = PASS（2026-10-03）。** 健康档案永久删除、影响预览、完整数据链清理、上传授权有效期后的可靠文件清理，以及 PROCESSING OCR 安全阻断均完成。负责人真实微信 T01～T06 全部 PASS，最终自动与 PostgreSQL 17 回归全部通过，详见 [Stage 08 RESULT](docs/stages/08-profile-data-deletion/RESULT.md)。本轮仅完成验收文档提交，不推送或合入 main。
+**Stage 09 = AUTOMATED PASS / WAITING MANUAL ACCEPTANCE（2026-10-04）。** 已完成首页 / 报告 / 我的三 Tab、待处理报告、上传与核对流程、报告 / 指标 / 档案界面及 Admin 基础统一。Backend 124 项、Miniapp 67 项、Admin 10 项测试、各端类型检查/构建及 PostgreSQL 03～08 专项通过；0 migration。负责人真实微信 T01～T11 与 Admin T12 尚待验收，见 [Stage 09 RESULT](docs/stages/09-productization-ui-ux/RESULT.md)。
+
+**Stage 08 = PASS（2026-10-03）。** 健康档案永久删除、影响预览、完整数据链清理、上传授权有效期后的可靠文件清理，以及 PROCESSING OCR 安全阻断均完成。负责人真实微信 T01～T06 全部 PASS，详见 [Stage 08 RESULT](docs/stages/08-profile-data-deletion/RESULT.md)。
 
 Stage 00～08 已验收通过。**Stage 04 = PASS**，已完成人工确认工作区、报告信息确认、AUTO/REVIEW 处理、StandardMetric 选择、手工补项/纯手工兜底、疑似重复提示，以及事务安全、幂等的正式 `LabReport / LabResult` 生成。项目负责人已在真实微信小程序中完成 W01～W04 人工验收，逐项证据见 [Stage 04 RESULT](docs/stages/04-confirmation-report/RESULT.md)。
 
@@ -41,7 +43,7 @@ OCR 成功只到 `PENDING_CONFIRMATION`，必须经过用户人工确认和最�
 | --- | --- | --- |
 | PostgreSQL 17 | 根目录 `compose.yaml` | 复制 `.env.example` 为 `.env`，执行 `docker compose up -d postgres` |
 | Backend | `GET /api/v1/health` | 按 `backend/README.md` 创建 Python 3.12 虚拟环境、安装依赖、执行迁移并启动 |
-| Miniapp | 登录、档案、上传、OCR 状态/任务记录、统一确认页 | 在 `miniapp/` 执行 `pnpm install`、`pnpm test`、`pnpm typecheck`、`pnpm build:mp-weixin`；将 `dist/build/mp-weixin` 导入微信开发者工具 |
+| Miniapp | 首页 / 报告 / 我的、待处理报告、上传 / 核对、正式报告 / 指标趋势、档案管理 | 在 `miniapp/` 执行 `pnpm install`、`pnpm test`、`pnpm typecheck`、`pnpm build:mp-weixin`；将 `dist/build/mp-weixin` 导入微信开发者工具 |
 | Admin Web | 独立登录、标准指标、别名、OCR 指标问题与只读任务 | 在 `admin-web/` 执行 `pnpm install`、`pnpm dev`、`pnpm build` |
 
 两个前端分别维护 `pnpm-lock.yaml`。真实 `.env` 不提交。后端运行前需将 `.env.example` 复制为 `.env`，设置 `DATABASE_URL`、至少 32 字符随机 `JWT_SECRET`、`WECHAT_APP_ID`、`WECHAT_APP_SECRET`、`COS_SECRET_ID`、`COS_SECRET_KEY`、`COS_BUCKET`、`COS_REGION`。执行 `docker compose up -d postgres`，在 `backend/` 执行 `.venv/Scripts/alembic.exe upgrade head` 和 `.venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000`。后端通过微信服务端 code 交换用户身份，签发自己的 Token；COS 永久密钥只在服务端使用。

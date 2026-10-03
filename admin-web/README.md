@@ -1,6 +1,8 @@
-# Admin Web（Stage 07 = PASS）
+# Admin Web（Stage 09：等待人工验收）
 
 Vue 3 + Vite + TypeScript + Element Plus + Vue Router。独立登录、标准指标、别名、OCR 指标问题和只读任务页。没有新增依赖。
+
+Stage09 统一导航、页面标题、筛选区、表格状态 Tag、Dialog、loading / empty / error / retry，保持 Stage07 业务与独立鉴权边界。10 项 tests、typecheck、build 通过；负责人 T12 尚待验收，见 [Stage09 RESULT](../docs/stages/09-productization-ui-ux/RESULT.md)。
 
 先在 backend 所用的安全环境 / 根目录不提交的 `.env` 配置：
 

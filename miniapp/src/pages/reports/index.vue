@@ -1,58 +1,62 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { onHide, onShow } from '@dcloudio/uni-app'
 import { ensureLogin, request, type Profile } from '../../api'
 import { reportsPath, reportDestination, mergeReportPage, type ReportCard, type ReportPage } from '../../reports'
-const profile = ref<Profile | null>(null)
-const items = ref<ReportCard[]>([])
-const loading = ref(false)
-const error = ref('')
-const more = ref(false)
+import { requestGuard } from '../../profile-metrics'
+import { navigate, newUploadPath, type ReportView } from '../../navigation'
+import { userError } from '../../ui'
+import PageContainer from '../../components/PageContainer.vue'
+import UiState from '../../components/UiState.vue'
+import ProfileContext from '../../components/ProfileContext.vue'
+import MetricList from '../../components/MetricList.vue'
+const view = ref<ReportView>('reports'), profile = ref<Profile | null>(null)
+const items = ref<ReportCard[]>([]), loading = ref(false), error = ref(''), more = ref(false)
 let page = 0
-let version = 0
-onShow(() => load(false))
+const guard = requestGuard()
+onShow(() => { view.value = uni.getStorageSync('uiReportView') === 'metrics' ? 'metrics' : 'reports'; load(false) })
+onHide(() => guard.invalidate())
+function select(next: ReportView) { view.value = next; uni.setStorageSync('uiReportView', next) }
 async function load(append = false) {
   if (append && (loading.value || !more.value)) return
-  const run = ++version
+  const run = guard.next()
   loading.value = true; error.value = ''
   if (!append) { items.value = []; profile.value = null; page = 0; more.value = false }
   try {
     const me = await ensureLogin()
-    if (!me.default_health_profile_id) return
+    if (!me.default_health_profile_id || !guard.current(run)) return
+    if (append && profile.value?.id !== me.default_health_profile_id) { await load(false); return }
     const selected = await request<Profile>(`/health-profiles/${me.default_health_profile_id}`)
     const next = await request<ReportPage>(reportsPath(selected.id, append ? page + 1 : 1))
-    if (run !== version) return
+    if (!guard.current(run)) return
     profile.value = selected; page = next.page; more.value = next.has_more
     items.value = mergeReportPage(items.value, next.items, append)
-  } catch (e) { if (run === version) error.value = e instanceof Error ? e.message : '加载失败' }
-  finally { if (run === version) loading.value = false }
+  } catch (e) { if (guard.current(run)) error.value = userError(e) }
+  finally { if (guard.current(run)) loading.value = false }
 }
-function go(url: string) { uni.navigateTo({ url }) }
 </script>
 <template>
-  <view class="page">
-    <text class="title">检验报告</text>
-    <button @click="go('/pages/profile-metrics/index')">我的指标</button>
-    <text v-if="profile">当前档案：{{ profile.display_name }}</text>
-    <button @click="go('/pages/profiles/index')">切换健康档案</button>
-    <text v-if="loading">正在加载...</text>
-    <view v-if="error"><text>{{ error }}</text><button @click="load(page > 0)">重试</button></view>
-    <view v-if="!loading && !error && !items.length">
-      <text>{{ profile ? '暂无正式检验报告' : '请先选择健康档案' }}</text>
-      <button @click="go(profile ? '/pages/upload/index?new=1' : '/pages/profiles/index')">{{ profile ? '上传报告' : '选择档案' }}</button>
-    </view>
-    <view v-for="item in items" :key="item.id" class="card" @click="go(reportDestination(item.id))">
-      <text>{{ item.examination_date }} {{ item.examination_time || '' }}</text>
-      <text v-if="item.hospital_name">{{ item.hospital_name }}</text>
-      <text v-if="item.report_category">{{ item.report_category }}</text>
-      <text>{{ item.item_count }} 项检验结果 · {{ item.abnormal_count }} 项有异常标记</text>
-      <text v-if="item.report_no">报告编号：{{ item.report_no }}</text>
-    </view>
-    <button v-if="more" :disabled="loading" @click="load(true)">加载更多</button>
-  </view>
+  <PageContainer>
+    <ProfileContext v-if="profile" :name="profile.display_name" @choose="navigate('/pages/profiles/index')" />
+    <view class="view-tabs"><button :class="view === 'reports' ? 'selected' : ''" @click="select('reports')">检验报告</button><button :class="view === 'metrics' ? 'selected' : ''" @click="select('metrics')">我的指标</button></view>
+    <UiState v-if="loading && !items.length" type="loading" title="正在加载报告" />
+    <UiState v-else-if="error" type="error" title="暂时无法加载" :description="error" action="重试" @action="load(page > 0)" />
+    <UiState v-else-if="!profile" type="empty" title="还没有健康档案" description="创建档案后，按家庭成员整理报告。" action="创建本人档案" @action="navigate('/pages/profile-edit/index')" />
+    <template v-else-if="view === 'reports'">
+      <UiState v-if="!items.length" type="empty" title="还没有正式检验报告" description="上传报告，核对识别结果后保存。" action="上传检验报告" @action="navigate(newUploadPath())" />
+      <view v-for="item in items" :key="item.id" class="card" @click="navigate(reportDestination(item.id))">
+        <text class="section-title">{{ item.examination_date }} {{ item.examination_time || '' }}</text>
+        <text v-if="item.hospital_name || item.report_category">{{ [item.hospital_name, item.report_category].filter(Boolean).join(' · ') }}</text>
+        <text class="muted">{{ item.item_count }} 项检验结果<text v-if="item.abnormal_count"> · {{ item.abnormal_count }} 项有异常标记</text></text>
+        <text v-if="item.report_no" class="muted">报告编号：{{ item.report_no }}</text>
+      </view>
+      <button v-if="more" class="secondary" :loading="loading" :disabled="loading" @click="load(true)">加载更多</button>
+    </template>
+    <MetricList v-else :profile="profile" @show-reports="select('reports')" />
+  </PageContainer>
 </template>
 <style scoped>
-.page, .card { display: flex; flex-direction: column; gap: 20rpx; padding: 32rpx; }
-.card { border: 1px solid #ddd; border-radius: 12rpx; }
-.title { font-size: 38rpx; font-weight: 600; }
+.view-tabs { display: flex; gap: 8rpx; border-bottom: 1rpx solid var(--border); }
+.view-tabs button { flex: 1; background: transparent; color: var(--muted); border-radius: 0; }
+.view-tabs .selected { color: var(--primary-text); border-bottom: 4rpx solid var(--primary); font-weight: 600; }
 </style>

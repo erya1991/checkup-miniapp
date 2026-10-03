@@ -22,6 +22,14 @@ export function displayUnit(result: Pick<ReportResult, 'unit_normalized' | 'unit
 export function abnormalLabel(value: string | null): string {
   return value === 'HIGH' ? '↑' : value === 'LOW' ? '↓' : !value || value === 'NORMAL' ? '' : '异常标记'
 }
+// Read the persisted flag; never infer an abnormality from values or ranges.
+export function abnormalDescription(value: string | null): string {
+  return value === 'HIGH' ? '↑ 偏高' : value === 'LOW' ? '↓ 偏低' : abnormalLabel(value)
+}
+export function resultIdentityHint(result: Pick<ReportResult, 'standard_metric'>): string {
+  return result.standard_metric ? `关联指标：${result.standard_metric.name}`
+    : '按本报告名称保存 · 不参与同类指标趋势'
+}
 export function unfinished(status: string) {
   return ['UPLOADING', 'READY', 'QUEUED', 'PROCESSING', 'OCR_FAILED', 'PENDING_CONFIRMATION'].includes(status)
 }
